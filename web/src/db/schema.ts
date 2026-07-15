@@ -5,6 +5,9 @@ import {
   integer,
   primaryKey,
   date,
+  real,
+  boolean,
+  unique,
 } from "drizzle-orm/pg-core"
 import type { AdapterAccountType } from "next-auth/adapters"
 
@@ -95,3 +98,66 @@ export const profiles = pgTable("profile", {
   createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),
 })
+
+// Phase 2: manual food logging (schematic.md)
+
+export const foodSource = ["off", "usda", "ifct", "ai", "manual"] as const
+
+export const foods = pgTable("food", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  barcode: text("barcode"),
+  name: text("name").notNull(),
+  brand: text("brand"),
+  caloriesPer100g: real("caloriesPer100g").notNull(),
+  proteinPer100g: real("proteinPer100g").notNull(),
+  carbsPer100g: real("carbsPer100g").notNull(),
+  fatPer100g: real("fatPer100g").notNull(),
+  source: text("source", { enum: foodSource }).notNull(),
+  createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+})
+
+export const logSource = ["barcode", "ai_photo", "manual"] as const
+
+export const foodLogs = pgTable("foodLog", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("userId")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  foodId: text("foodId")
+    .notNull()
+    .references(() => foods.id),
+  datetime: timestamp("datetime", { mode: "date" }).notNull().defaultNow(),
+  quantityG: real("quantityG").notNull(),
+  // Calories/macros are snapshotted here at log time, not recomputed from
+  // foods + quantity on read. If a food's nutrition data is later corrected,
+  // past log entries should keep reflecting what the user was told they ate.
+  calories: real("calories").notNull(),
+  protein: real("protein").notNull(),
+  carbs: real("carbs").notNull(),
+  fat: real("fat").notNull(),
+  source: text("source", { enum: logSource }).notNull(),
+})
+
+// Phase 5: weight tracking (schematic.md) — pulled forward for profile
+// setup's first weight entry (design_handoff_macrograin screen 2).
+
+export const weightLogs = pgTable(
+  "weightLog",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    weightKg: real("weightKg").notNull(),
+    isUnreliable: boolean("isUnreliable").notNull().default(false),
+    createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+  },
+  (weightLog) => [unique().on(weightLog.userId, weightLog.date)]
+)
