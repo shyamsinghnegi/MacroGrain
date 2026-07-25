@@ -85,28 +85,30 @@ export function ScanClient() {
           return
         }
 
-        // Prefer a rear/environment-facing camera if labeled as such,
-        // matching the design's assumption of scanning a product held
-        // in front of the phone (not a selfie-facing camera).
-        const rearCamera = devices.find((d) =>
-          /back|rear|environment/i.test(d.label)
-        )
-        const deviceId = rearCamera?.deviceId ?? devices[0].deviceId
-
         if (!videoRef.current) return
 
         // zxing's own decodeFromVideoDevice(deviceId, ...) only ever sends
         // { deviceId: { exact } } to getUserMedia (confirmed in its source)
         // - no resolution or focus constraints, same low-res-default bug
         // AI Photo mode had before its fix. Building the stream ourselves
-        // (same ideal-4K constraints as AI Photo) and handing it to zxing's
-        // lower-level decodeFromStream() instead gets barcode mode the
-        // exact same fix, plus makes tuneVideoTrack's continuous-autofocus/
-        // torch/tap-to-focus support apply here too instead of only in AI
-        // Photo mode.
+        // and handing it to zxing's lower-level decodeFromStream() instead
+        // gets barcode mode the exact same fix, plus makes
+        // tuneVideoTrack's continuous-autofocus/torch/tap-to-focus support
+        // apply here too instead of only in AI Photo mode.
+        //
+        // Uses facingMode (not deviceId: exact) for the same reason AI
+        // Photo mode does - pairing an exact deviceId constraint with
+        // width/height ideals caused several Android Chrome builds to
+        // silently ignore the resolution ideal and fall back to a low
+        // default (confirmed: this is what stayed blurry after the first
+        // fix, on a device where AI Photo's facingMode-only stream came
+        // out sharp). `devices`/`rearCamera` above is now only used to
+        // confirm a camera actually exists, not to pin a specific one -
+        // facingMode: environment already selects the rear camera on
+        // virtually every phone without needing its literal deviceId.
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            deviceId: { exact: deviceId },
+            facingMode: { ideal: "environment" },
             width: { ideal: 3840 },
             height: { ideal: 2160 },
           },

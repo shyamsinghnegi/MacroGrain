@@ -51,12 +51,19 @@ export function PhotoConfirmClient() {
 
 function ConfirmForm({ estimate }: { estimate: FoodPhotoResult }) {
   const [state, formAction, pending] = useActionState(createAiFoodAndLog, undefined)
+  // Kept as a string, not a number - a numeric useState forces every
+  // keystroke through Number(...), so clearing the field to type a new
+  // value always collapsed back to a fallback (1) instead of ever reaching
+  // an empty box, making the old digit stick around while new ones got
+  // appended after it. `portionValue` below is the derived number actually
+  // used for math/submission; `portion` is purely what the input displays.
   const [portion, setPortion] = useState(() => {
     const match = estimate.portionDescription.match(/(\d+)\s*g/i)
-    return match ? Number(match[1]) : 250
+    return match ? match[1] : "250"
   })
+  const portionValue = Math.max(1, Number(portion) || 0)
 
-  const scale = portion / (Number(estimate.portionDescription.match(/(\d+)\s*g/i)?.[1]) || 250)
+  const scale = portionValue / (Number(estimate.portionDescription.match(/(\d+)\s*g/i)?.[1]) || 250)
   const isLow = estimate.confidence === "low"
 
   return (
@@ -120,10 +127,7 @@ function ConfirmForm({ estimate }: { estimate: FoodPhotoResult }) {
                 inputMode="numeric"
                 min={1}
                 value={portion}
-                onChange={(e) => {
-                  const next = Number(e.target.value)
-                  setPortion(Number.isFinite(next) && next > 0 ? next : 1)
-                }}
+                onChange={(e) => setPortion(e.target.value)}
                 className="w-16 bg-transparent font-mono text-base text-text outline-none"
               />
               <span className="font-mono text-sm text-text-muted">g</span>
@@ -132,21 +136,21 @@ function ConfirmForm({ estimate }: { estimate: FoodPhotoResult }) {
           <div className="flex gap-2.5">
             <button
               type="button"
-              onClick={() => setPortion((p) => Math.max(1, p - 25))}
+              onClick={() => setPortion(String(Math.max(1, portionValue - 25)))}
               className="flex size-9 items-center justify-center rounded-input border border-hairline text-lg text-text"
             >
               −
             </button>
             <button
               type="button"
-              onClick={() => setPortion((p) => p + 25)}
+              onClick={() => setPortion(String(portionValue + 25))}
               className="flex size-9 items-center justify-center rounded-input bg-text text-lg text-bg"
             >
               +
             </button>
           </div>
         </div>
-        <input type="hidden" name="portionG" value={portion} />
+        <input type="hidden" name="portionG" value={portionValue} />
         <FieldError message={state?.errors?.portionG?.[0]} />
         <FieldError message={state?.errors?.name?.[0]} />
 
