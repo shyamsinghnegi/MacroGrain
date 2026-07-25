@@ -3,6 +3,7 @@ import { pushSubscriptions, profiles } from "@/db/schema"
 import { eq, and, or, isNull, lt } from "drizzle-orm"
 import { NextRequest } from "next/server"
 import webpush from "web-push"
+import { hourInTimezone } from "@/lib/dates"
 
 // Triggered by an external free scheduler (cron-job.org) hitting this URL
 // every ~15-20 minutes - Vercel's own Cron is capped at once/day on the
@@ -14,6 +15,16 @@ import webpush from "web-push"
 // being open - without this, anyone who found this URL could trigger a
 // push send to every subscribed user.
 const REMINDER_INTERVAL_MS = 60 * 60 * 1000
+
+// Quiet hours: no reminder between midnight and 6am *in the user's own
+// timezone*, not server/UTC time - a blanket UTC cutoff would fire at
+// completely wrong local hours for anyone not near UTC+0 (same reasoning
+// as lib/dates.ts's whole timezone-aware system). Nobody wants a push at
+// 2am because they happen to be logged in from India while the cron runs
+// on UTC. Checked per-subscription below since each user can be in a
+// different zone. Quiet window is [0, 6) - 6am is the first hour reminders
+// resume.
+const QUIET_HOUR_END = 6
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization")
@@ -35,13 +46,14 @@ export async function GET(request: NextRequest) {
   // enabled AND hasn't been notified in the last hour (or never has been) -
   // mirrors water-reminders.tsx's original client-side gate, enforced
   // server-side now that this can fire without a tab open.
-  const due = await db
+  const dueIgnoringQuietHours = await db
     .select({
       id: pushSubscriptions.id,
       endpoint: pushSubscriptions.endpoint,
       p256dh: pushSubscriptions.p256dh,
       auth: pushSubscriptions.auth,
       waterGoalMl: profiles.waterGoalMl,
+      timezone: profiles.timezone,
     })
     .from(pushSubscriptions)
     .innerJoin(profiles, eq(profiles.userId, pushSubscriptions.userId))
@@ -51,6 +63,12 @@ export async function GET(request: NextRequest) {
         or(isNull(pushSubscriptions.lastNotifiedAt), lt(pushSubscriptions.lastNotifiedAt, cutoff))
       )
     )
+
+  const due = dueIgnoringQuietHours.filter((sub) => {
+    const localHour = hourInTimezone(new Date(), sub.timezone)
+    return localHour >= QUIET_HOUR_END
+  })
+  const quieted = dueIgnoringQuietHours.length - due.length
 
   let sent = 0
   let expired = 0
@@ -88,5 +106,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return Response.json({ due: due.length, sent, expired })
+  return Response.json({ due: due.length, sent, expired, quieted })
 }
