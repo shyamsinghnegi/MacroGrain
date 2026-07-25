@@ -6,6 +6,7 @@ import { profiles, weightLogs } from "@/db/schema"
 import { ProfileSchema, type ProfileFormState } from "@/lib/profile-schema"
 import { redirect } from "next/navigation"
 import { toDateParam } from "@/lib/dates"
+import { getTimezone } from "@/lib/timezone"
 
 export async function saveProfile(
   _prevState: ProfileFormState,
@@ -31,25 +32,31 @@ export async function saveProfile(
 
   const { heightCm, weightKg, sex, birthDate, activityLevel, goal } = validated.data
   const userId = session.user.id
-  const today = toDateParam(new Date())
+  const tz = await getTimezone()
+  const today = toDateParam(new Date(), tz)
 
-  await db.transaction(async (tx) => {
-    await tx
-      .insert(profiles)
-      .values({ userId, heightCm, sex, birthDate, activityLevel, goal })
-      .onConflictDoUpdate({
-        target: profiles.userId,
-        set: { heightCm, sex, birthDate, activityLevel, goal, updatedAt: new Date() },
-      })
+  // Not wrapped in db.transaction(): Cloudflare D1's REST query API is
+  // stateless per HTTP request and rejects raw BEGIN/COMMIT statements
+  // (error 7500 - "use state.storage.transaction() instead"), which is what
+  // Drizzle's sqlite-proxy transaction() sends under the hood. Confirmed by
+  // testing directly against the live API. Running these two writes
+  // sequentially instead - not atomic across the pair, but functional,
+  // versus the transaction wrapper which was throwing on every call.
+  await db
+    .insert(profiles)
+    .values({ userId, heightCm, sex, birthDate, activityLevel, goal })
+    .onConflictDoUpdate({
+      target: profiles.userId,
+      set: { heightCm, sex, birthDate, activityLevel, goal, updatedAt: new Date() },
+    })
 
-    await tx
-      .insert(weightLogs)
-      .values({ userId, date: today, weightKg })
-      .onConflictDoUpdate({
-        target: [weightLogs.userId, weightLogs.date],
-        set: { weightKg },
-      })
-  })
+  await db
+    .insert(weightLogs)
+    .values({ userId, date: today, weightKg })
+    .onConflictDoUpdate({
+      target: [weightLogs.userId, weightLogs.date],
+      set: { weightKg },
+    })
 
-  redirect("/profile")
+  redirect("/profile?toast=Profile+saved")
 }

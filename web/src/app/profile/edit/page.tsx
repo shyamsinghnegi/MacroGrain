@@ -21,7 +21,7 @@ export default async function EditProfilePage() {
   })
 
   return (
-    <div className="mx-auto max-w-md px-6 pt-16 pb-28">
+    <div className="mx-auto w-full px-4 sm:px-6 pt-16 pb-28 sm:max-w-xl">
       <h1 className="mb-8 text-2xl font-semibold text-text">
         {profile ? "Edit profile" : "Set up your profile"}
       </h1>

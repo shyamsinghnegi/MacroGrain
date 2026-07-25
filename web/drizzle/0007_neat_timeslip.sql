@@ -1,0 +1,1 @@
+ALTER TABLE `profile` ADD `themePreset` text DEFAULT 'none' NOT NULL;

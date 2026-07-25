@@ -5,6 +5,7 @@ import { redirect } from "next/navigation"
 import { and, eq, gte, lt } from "drizzle-orm"
 import Link from "next/link"
 import { dayBounds, toDateParam, parseDateParam, MEALS, mealForTime } from "@/lib/dates"
+import { getTimezone } from "@/lib/timezone"
 import { SourceBadge } from "@/components/source-badge"
 
 export default async function HistoryPage({
@@ -17,9 +18,10 @@ export default async function HistoryPage({
     redirect("/")
   }
 
+  const tz = await getTimezone()
   const { date } = await searchParams
-  const day = parseDateParam(date)
-  const { startOfDay, startOfNextDay } = dayBounds(day)
+  const day = parseDateParam(date, tz)
+  const { startOfDay, startOfNextDay } = dayBounds(day, tz)
 
   const prevDay = new Date(startOfDay.getTime() - 24 * 60 * 60 * 1000)
   const nextDay = startOfNextDay
@@ -52,21 +54,21 @@ export default async function HistoryPage({
 
   const mealGroups = MEALS.map((meal) => ({
     meal,
-    entries: entries.filter((e) => mealForTime(e.datetime) === meal),
+    entries: entries.filter((e) => mealForTime(e.datetime, tz) === meal),
   })).filter((group) => group.entries.length > 0)
 
   const dateLabel = startOfDay.toLocaleDateString("en-US", {
     weekday: "short",
     day: "numeric",
     month: "long",
-    timeZone: "UTC",
+    timeZone: tz,
   })
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col gap-6 px-6 pt-16 pb-28">
+    <div className="mx-auto flex min-h-screen w-full flex-col gap-6 px-4 sm:px-6 pt-16 pb-28 sm:max-w-xl">
       <div className="flex items-center justify-between">
         <Link
-          href={`/history?date=${toDateParam(prevDay)}`}
+          href={`/history?date=${toDateParam(prevDay, tz)}`}
           className="font-mono text-lg text-text-muted transition-colors hover:text-text"
         >
           ‹
@@ -75,7 +77,7 @@ export default async function HistoryPage({
           {dateLabel}
         </p>
         <Link
-          href={`/history?date=${toDateParam(nextDay)}`}
+          href={`/history?date=${toDateParam(nextDay, tz)}`}
           className="font-mono text-lg text-text-muted transition-colors hover:text-text"
         >
           ›
@@ -83,7 +85,7 @@ export default async function HistoryPage({
       </div>
 
       <div className="rounded-hero bg-surface p-6 shadow-hero">
-        <p className="font-doto text-[11px] tracking-[0.18em] text-text-muted uppercase">
+        <p className="label-mono font-doto text-[11px] tracking-[0.18em] text-text-muted uppercase">
           Total
         </p>
         <p className="mt-2 font-doto text-3xl font-black text-text">
@@ -95,7 +97,28 @@ export default async function HistoryPage({
       </div>
 
       {entries.length === 0 ? (
-        <p className="text-text-muted">No entries logged this day.</p>
+        <div className="flex flex-col items-center gap-4 py-6 text-center">
+          <div className="flex size-20 items-center justify-center rounded-2xl border border-dashed border-hairline">
+            <span className="font-doto text-2xl font-black text-text-ghost">
+              +
+            </span>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <p className="text-base font-semibold text-text">
+              No entries this day
+            </p>
+            <p className="max-w-[260px] text-sm text-text-muted">
+              Add a food to start this day&apos;s log, or use ‹ › to move
+              between days.
+            </p>
+          </div>
+          <Link
+            href="/log"
+            className="rounded-pill border-[1.5px] border-hairline px-5 py-2 text-sm font-medium text-text"
+          >
+            + Add food
+          </Link>
+        </div>
       ) : (
         <div className="flex flex-col gap-5">
           {mealGroups.map(({ meal, entries: mealEntries }) => {
@@ -103,7 +126,7 @@ export default async function HistoryPage({
             return (
               <div key={meal} className="flex flex-col gap-2">
                 <div className="flex items-baseline justify-between">
-                  <p className="font-doto text-[10px] tracking-[0.2em] text-text-muted uppercase">
+                  <p className="label-mono font-doto text-[10px] tracking-[0.2em] text-text-muted uppercase">
                     {meal}
                   </p>
                   <p className="font-mono text-xs text-text-muted">

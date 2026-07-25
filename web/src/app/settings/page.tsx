@@ -28,7 +28,10 @@ export default async function SettingsPage() {
 
   const dataSources = [
     { label: "Open Food Facts", connected: true },
-    { label: "USDA FoodData", connected: true },
+    // Not actually integrated yet - no code anywhere calls USDA's API.
+    // Shown as "off" rather than a fake "connected" (the design mockup's
+    // literal label) so this row doesn't imply real coverage that isn't there.
+    { label: "USDA FoodData", connected: false },
   ]
 
   return (

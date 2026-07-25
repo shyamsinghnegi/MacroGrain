@@ -28,29 +28,53 @@ export default async function WeightPage({
     orderBy: asc(weightLogs.date),
   })
 
+  // react-hooks/purity flags Date.now() as an impure call during render,
+  // a rule aimed at client re-render consistency. This is an async Server
+  // Component: it renders exactly once per request (no re-render to be
+  // inconsistent across), and "what time is it right now" is legitimately
+  // needed here to bucket weight entries by range - not a purity bug.
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now()
+
   const cutoffDays = ranges[range]
   const entries =
     cutoffDays === Infinity
       ? allEntries
       : allEntries.filter((e) => {
-          const daysAgo = (Date.now() - new Date(e.date).getTime()) / 86_400_000
+          const daysAgo = (now - new Date(e.date).getTime()) / 86_400_000
           return daysAgo <= cutoffDays
         })
 
   const latest = allEntries.at(-1)
   const thirtyDaysAgoEntry = allEntries.findLast(
-    (e) => Date.now() - new Date(e.date).getTime() >= 30 * 86_400_000
+    (e) => now - new Date(e.date).getTime() >= 30 * 86_400_000
   )
   const delta =
     latest && thirtyDaysAgoEntry ? latest.weightKg - thirtyDaysAgoEntry.weightKg : null
 
+  if (allEntries.length === 0) {
+    return (
+      <div className="mx-auto flex w-full flex-col gap-6 px-4 sm:px-6 pt-16 pb-28 sm:max-w-xl">
+        <h1 className="text-2xl font-semibold text-text">Weight</h1>
+        <LogWeightForm
+          emptyState={{
+            headline: "No weight logged",
+            description:
+              "Log a few entries to see your trend line and a smoothed average.",
+            ctaLabel: "+ Log first weight",
+          }}
+        />
+      </div>
+    )
+  }
+
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-6 px-6 pt-16 pb-28">
+    <div className="mx-auto flex w-full flex-col gap-6 px-4 sm:px-6 pt-16 pb-28 sm:max-w-xl">
       <h1 className="text-2xl font-semibold text-text">Weight</h1>
 
       <div className="flex items-end justify-between">
         <div>
-          <p className="font-doto text-[11px] tracking-[0.18em] text-text-muted uppercase">
+          <p className="label-mono font-doto text-[11px] tracking-[0.18em] text-text-muted uppercase">
             Current
           </p>
           <p className="font-doto text-4xl font-black text-text">

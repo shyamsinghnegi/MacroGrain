@@ -1,0 +1,1 @@
+ALTER TABLE `profile` ADD `timezone` text DEFAULT 'UTC' NOT NULL;

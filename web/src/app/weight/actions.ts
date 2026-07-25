@@ -5,6 +5,7 @@ import { db } from "@/db"
 import { weightLogs } from "@/db/schema"
 import { redirect } from "next/navigation"
 import { toDateParam } from "@/lib/dates"
+import { getTimezone } from "@/lib/timezone"
 import { z } from "zod"
 
 const LogWeightSchema = z.object({
@@ -32,11 +33,13 @@ export async function logWeight(
     return { errors: validated.error.flatten().fieldErrors }
   }
 
+  const tz = await getTimezone()
+
   await db
     .insert(weightLogs)
     .values({
       userId: session.user.id,
-      date: toDateParam(new Date()),
+      date: toDateParam(new Date(), tz),
       weightKg: validated.data.weightKg,
     })
     .onConflictDoUpdate({
@@ -44,5 +47,6 @@ export async function logWeight(
       set: { weightKg: validated.data.weightKg },
     })
 
-  redirect("/weight")
+  const toast = encodeURIComponent(`Weight saved · ${validated.data.weightKg} kg`)
+  redirect(`/weight?toast=${toast}`)
 }
