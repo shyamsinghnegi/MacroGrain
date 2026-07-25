@@ -95,8 +95,31 @@ export function ScanClient() {
 
         if (!videoRef.current) return
 
-        const controls = await reader.decodeFromVideoDevice(
-          deviceId,
+        // zxing's own decodeFromVideoDevice(deviceId, ...) only ever sends
+        // { deviceId: { exact } } to getUserMedia (confirmed in its source)
+        // - no resolution or focus constraints, same low-res-default bug
+        // AI Photo mode had before its fix. Building the stream ourselves
+        // (same ideal-4K constraints as AI Photo) and handing it to zxing's
+        // lower-level decodeFromStream() instead gets barcode mode the
+        // exact same fix, plus makes tuneVideoTrack's continuous-autofocus/
+        // torch/tap-to-focus support apply here too instead of only in AI
+        // Photo mode.
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            deviceId: { exact: deviceId },
+            width: { ideal: 3840 },
+            height: { ideal: 2160 },
+          },
+        })
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop())
+          return
+        }
+        streamRef.current = stream
+        tuneVideoTrack(stream)
+
+        const controls = await reader.decodeFromStream(
+          stream,
           videoRef.current,
           (result) => {
             if (cancelled) return
@@ -111,13 +134,6 @@ export function ScanClient() {
           }
         )
         controlsRef.current = controls
-
-        // zxing manages this stream internally (not exposed via `controls`
-        // directly) but does assign it to the video element's srcObject
-        // (confirmed in its own source - addVideoSource), so it's readable
-        // from there right after decodeFromVideoDevice resolves.
-        const activeStream = videoRef.current.srcObject as MediaStream | null
-        if (activeStream) tuneVideoTrack(activeStream)
       } catch (e) {
         if (!cancelled) {
           setState("camera_error")

@@ -114,7 +114,20 @@ function ConfirmForm({ estimate }: { estimate: FoodPhotoResult }) {
         <div className="flex items-center justify-between rounded-card border border-hairline bg-card px-4 py-3.5">
           <div>
             <p className="text-xs text-text-muted">Portion</p>
-            <p className="mt-0.5 font-mono text-base text-text">{portion} g</p>
+            <div className="mt-0.5 flex items-baseline gap-1">
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                value={portion}
+                onChange={(e) => {
+                  const next = Number(e.target.value)
+                  setPortion(Number.isFinite(next) && next > 0 ? next : 1)
+                }}
+                className="w-16 bg-transparent font-mono text-base text-text outline-none"
+              />
+              <span className="font-mono text-sm text-text-muted">g</span>
+            </div>
           </div>
           <div className="flex gap-2.5">
             <button
