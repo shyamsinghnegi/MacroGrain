@@ -72,7 +72,7 @@ export function WeightChart({ entries }: { entries: Entry[] }) {
             x2={WIDTH}
             y1={HEIGHT * f}
             y2={HEIGHT * f}
-            stroke="rgba(255,255,255,.06)"
+            stroke="var(--color-hairline)"
           />
         ))}
 
@@ -95,7 +95,7 @@ export function WeightChart({ entries }: { entries: Entry[] }) {
               cx={xFor(i)}
               cy={yFor(entry.weightKg)}
               r={isLatest ? 4 : 3}
-              fill={isLatest ? "var(--color-accent)" : "#8A8A8A"}
+              fill={isLatest ? "var(--color-accent)" : "var(--color-text-muted)"}
             />
           )
         })}

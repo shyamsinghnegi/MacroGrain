@@ -33,7 +33,7 @@ export function SegBar({
       {Array.from({ length: clampedTotal - clampedFilled }, (_, i) => (
         <div
           key={`off-${i}`}
-          className="flex-1 rounded-[2px] bg-white/7 shadow-[inset_0_0_0_1px_rgba(255,255,255,.02)]"
+          className="flex-1 rounded-[2px] bg-card-alt shadow-[inset_0_0_0_1px_var(--color-hairline)]"
         />
       ))}
     </div>

@@ -13,11 +13,11 @@ const base =
 
 const variants = {
   primary:
-    "bg-text text-bg hover:bg-white hover:shadow-[0_0_22px_rgba(255,255,255,.18)] active:bg-[#c9c9c9] active:translate-y-px disabled:bg-[#1c1c1c] disabled:text-[#4a4a4a] disabled:shadow-none",
+    "bg-text text-bg hover:bg-white hover:shadow-[0_0_22px_rgba(255,255,255,.18)] active:bg-[#c9c9c9] active:translate-y-px disabled:bg-card-alt disabled:text-text-faint disabled:shadow-none",
   accent:
-    "bg-accent text-bg font-bold shadow-accent-glow hover:brightness-110 active:brightness-95 active:translate-y-px disabled:bg-[#1c1c1c] disabled:text-[#4a4a4a] disabled:shadow-none",
+    "bg-accent text-bg font-bold shadow-accent-glow hover:brightness-110 active:brightness-95 active:translate-y-px disabled:bg-card-alt disabled:text-text-faint disabled:shadow-none",
   secondary:
-    "border-[1.5px] border-white/20 text-text hover:border-white/40 active:translate-y-px disabled:border-white/10 disabled:text-[#4a4a4a]",
+    "border-[1.5px] border-hairline text-text hover:border-text-faint active:translate-y-px disabled:border-hairline disabled:text-text-faint",
 }
 
 // Exported so <Link> (which can't be a <button>) can share the exact same

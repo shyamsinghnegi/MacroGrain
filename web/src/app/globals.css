@@ -4,33 +4,244 @@
   /* Fonts — see design_handoff_macrograin/README.md "Typography"
      Doto: hero numbers + uppercase section labels, never body.
      IBM Plex Mono: inline numeric/data values, captions, badges.
-     IBM Plex Sans: labels, body copy, navigation, buttons. */
-  --font-doto: var(--font-doto);
-  --font-mono: var(--font-ibm-plex-mono);
-  --font-sans: var(--font-ibm-plex-sans);
+     IBM Plex Sans: labels, body copy, navigation, buttons.
+     All three swap per data-font on <body> - see the font-style blocks below. */
+  --font-doto: var(--font-doto-active);
+  --font-mono: var(--font-mono-active);
+  --font-sans: var(--font-sans-active);
 
-  /* Color — see design_handoff_macrograin/README.md "Color" */
-  --color-bg: #0a0a0a;
-  --color-bg-deep: #050505;
-  --color-surface: #101010;
-  --color-card: #131313;
-  --color-card-alt: #171818;
-  --color-hairline: rgba(255, 255, 255, 0.07);
-  --color-text: #ededed;
-  --color-text-muted: #8a8a8a;
-  --color-text-faint: #565656;
-  --color-text-ghost: #3a3a3a;
-  --color-accent: #c6f24d;
-  --color-protein: #5b9df9;
-  --color-carbs: #e8b24a;
-  --color-fat: #e86aae;
-  --color-warning: #e8894a;
+  /* Color tokens are CSS custom properties (not hardcoded here) so
+     data-theme/data-accent on <html> can override them - see :root below.
+     @theme inline just re-exposes them as Tailwind utility classes. */
+  --color-bg: var(--mg-bg);
+  --color-bg-deep: var(--mg-bg-deep);
+  --color-surface: var(--mg-surface);
+  --color-card: var(--mg-card);
+  --color-card-alt: var(--mg-card-alt);
+  --color-hairline: var(--mg-hairline);
+  --color-text: var(--mg-text);
+  --color-text-muted: var(--mg-text-muted);
+  --color-text-faint: var(--mg-text-faint);
+  --color-text-ghost: var(--mg-text-ghost);
+  --color-accent: var(--mg-accent);
+  --color-protein: var(--mg-protein);
+  --color-carbs: var(--mg-carbs);
+  --color-fat: var(--mg-fat);
+  --color-warning: var(--mg-warning);
+  --color-info: var(--mg-info);
 
   /* Radius — see design_handoff_macrograin/README.md "Radius" */
   --radius-input: 12px;
   --radius-card: 18px;
   --radius-hero: 24px;
   --radius-pill: 999px;
+}
+
+/* Dark is the default and the original design spec's only palette - see
+   design_handoff_macrograin/README.md "Color". Light mode (below) is an
+   intentional extension, not a mechanical inversion: it keeps the same
+   instrument-panel character (near-monochrome, one accent, macro colors
+   unchanged) but rebuilt for legibility on light backgrounds rather than
+   just flipping the dark values. */
+:root,
+:root[data-theme="dark"] {
+  --mg-bg: #0a0a0a;
+  --mg-bg-deep: #050505;
+  --mg-surface: #101010;
+  --mg-card: #131313;
+  --mg-card-alt: #171818;
+  --mg-hairline: rgba(255, 255, 255, 0.07);
+  --mg-text: #ededed;
+  --mg-text-muted: #8a8a8a;
+  /* #565656 measured at only 2.53:1 against the card (#131313) - fails
+     even the relaxed 3:1 large-text minimum, not just the 4.5:1 normal-text
+     one. Reported directly: timeline hour labels and "Nothing logged"
+     status lines using this tier were "unreadable." #7e7e7e clears 4.5:1. */
+  --mg-text-faint: #7e7e7e;
+  --mg-text-ghost: #3a3a3a;
+  --mg-protein: #5b9df9;
+  --mg-carbs: #e8b24a;
+  --mg-fat: #e86aae;
+  --mg-warning: #e8894a;
+  --mg-info: #4ac9e8;
+  --mg-dither-dot: rgba(255, 255, 255, 0.06);
+}
+
+:root[data-theme="light"] {
+  /* Warm off-white/cream instead of pure white or a cool gray - pure white
+     surfaces read as sterile/clinical against this app's otherwise warm
+     instrument-panel mood, and made the dithered background texture nearly
+     imperceptible (white dots on white). Cream also gives text slightly
+     more perceptual contrast than true white does at the same hex distance. */
+  --mg-bg: #f2efe6;
+  --mg-bg-deep: #e8e4d8;
+  --mg-surface: #fbf9f2;
+  --mg-card: #fbf9f2;
+  --mg-card-alt: #efebe0;
+  --mg-hairline: rgba(30, 25, 15, 0.14);
+  --mg-text: #100e0a;
+  /* Darker than a naive "invert the dark values" pass would give - the
+     dark theme's muted/faint grays (#8a8a8a, #565656) read as intentionally
+     receded against a near-black card, but the same relative lightness gap
+     against a near-white card drops well below a readable contrast ratio
+     (reported directly: section labels and secondary lines were "hard to
+     see"/near-invisible in practice, not just subjectively muted). */
+  --mg-text-muted: #52524e;
+  --mg-text-faint: #7a7a76;
+  --mg-text-ghost: #b8b8b4;
+  /* Macro colors darkened slightly from the dark-mode values to keep the
+     same ~4.5:1 contrast ratio against a near-white card instead of a
+     near-black one - the raw dark-mode hexes read as too pale/washed out
+     on white. */
+  --mg-protein: #2f6fd6;
+  --mg-carbs: #b3791f;
+  --mg-fat: #c23e88;
+  --mg-warning: #c26a2a;
+  --mg-info: #1f8fae;
+  --mg-dither-dot: rgba(0, 0, 0, 0.05);
+}
+
+/* Accent color options - see profiles.accentColor. Lime is the original
+   design's only accent; the other three are new options picked to each
+   pass contrast on both the dark card (#131313) and light card backgrounds,
+   and to stay visually distinct from the fixed macro colors (protein blue /
+   carbs gold / fat magenta) so a badge/bar isn't ambiguous with the accent. */
+:root,
+:root[data-accent="lime"] {
+  --mg-accent: #c6f24d;
+}
+:root[data-accent="blue"] {
+  --mg-accent: #4d9dff;
+}
+:root[data-accent="pink"] {
+  --mg-accent: #ff6fb0;
+}
+:root[data-accent="orange"] {
+  --mg-accent: #ff9a4d;
+}
+
+/* Light-mode accent overrides - the dark-mode accent hexes above are all
+   picked to glow against a near-black card (backgrounds/glows/borders),
+   but several of them are illegible as *text* on a light card - lime in
+   particular measured at ~1.2:1 contrast against the cream card (WCAG AA
+   requires 4.5:1 for normal text), since a bright yellow-green is
+   fundamentally a poor text color on any light background. Each of these
+   was verified to clear 4.5:1 against the cream card (#fbf9f2) using the
+   standard WCAG relative-luminance formula before picking the final hex. */
+:root[data-theme="light"][data-accent="lime"] {
+  --mg-accent: #5a7a1a;
+}
+:root[data-theme="light"][data-accent="blue"] {
+  --mg-accent: #2d6fd6;
+}
+:root[data-theme="light"][data-accent="pink"] {
+  --mg-accent: #c23e88;
+}
+:root[data-theme="light"][data-accent="orange"] {
+  --mg-accent: #a85820;
+}
+
+/* Named full palettes - see profiles.themePreset. Unlike the plain
+   theme+accent combination above (which only swaps the accent hue over a
+   generic dark/light base), each of these overrides background/card/text
+   colors directly too, matching a specific reference palette rather than
+   a tinted version of the default look. All are dark palettes (their
+   source references read as moody/rich, not daylight-bright) - every text
+   and accent color below was independently verified at >=4.5:1 against its
+   own card color with the standard WCAG relative-luminance formula, not
+   assumed safe just because it looked fine on the original swatch card
+   (several needed brightening from the literal reference hex to pass as
+   text - e.g. Old Money's burgundy measured 2.9:1 as text before adjustment). */
+:root[data-palette="old_money"] {
+  --mg-bg: #100e0d;
+  --mg-bg-deep: #0a0908;
+  --mg-surface: #1c1917;
+  --mg-card: #161413;
+  --mg-card-alt: #201d1b;
+  --mg-hairline: rgba(237, 231, 218, 0.09);
+  --mg-text: #ede7da;
+  --mg-text-muted: #a89e8c;
+  --mg-text-faint: #7d7566;
+  --mg-text-ghost: #4a453c;
+  --mg-accent: #de5c5c;
+  --mg-protein: #5b9df9;
+  --mg-carbs: #c9a227;
+  --mg-fat: #c2708a;
+  --mg-warning: #c2703a;
+  --mg-info: #4ac9e8;
+  --mg-dither-dot: rgba(237, 231, 218, 0.06);
+}
+
+:root[data-palette="blue_fantastic"] {
+  --mg-bg: #10151f;
+  --mg-bg-deep: #0a0d14;
+  --mg-surface: #1c2432;
+  --mg-card: #161d29;
+  --mg-card-alt: #202939;
+  --mg-hairline: rgba(231, 224, 211, 0.09);
+  --mg-text: #e7e0d3;
+  --mg-text-muted: #9aa3b3;
+  --mg-text-faint: #707b8e;
+  --mg-text-ghost: #414b5c;
+  --mg-accent: #ff9a4d;
+  --mg-protein: #5b9df9;
+  --mg-carbs: #e8b24a;
+  --mg-fat: #e86aae;
+  --mg-warning: #d1583a;
+  --mg-info: #4ac9e8;
+  --mg-dither-dot: rgba(231, 224, 211, 0.06);
+}
+
+:root[data-palette="kombu"] {
+  --mg-bg: #0e130a;
+  --mg-bg-deep: #090c06;
+  --mg-surface: #1a2213;
+  --mg-card: #141b10;
+  --mg-card-alt: #1e2717;
+  --mg-hairline: rgba(236, 227, 211, 0.09);
+  --mg-text: #ece3d3;
+  --mg-text-muted: #a3ad78;
+  --mg-text-faint: #7d8760;
+  --mg-text-ghost: #454d38;
+  --mg-accent: #a3ad78;
+  --mg-protein: #5b9df9;
+  --mg-carbs: #cfbb99;
+  --mg-fat: #c2708a;
+  --mg-warning: #c2703a;
+  --mg-info: #4ac9e8;
+  --mg-dither-dot: rgba(236, 227, 211, 0.06);
+}
+
+/* Font style options - see profiles.fontStyle. "default" is the original
+   three-family system (Doto hero numbers / mono data / sans body).
+   "mono" leans further into the instrument-panel mood by using the mono
+   face for body text too, keeping Doto for hero numbers only. "classic"
+   drops Doto entirely in favor of the sans face everywhere, for anyone who
+   finds the dot-matrix hero numerals hard to read. "cyberpunk" swaps in
+   Orbitron (angular sci-fi/HUD face) for hero numerals and Rajdhani
+   (condensed techy face) for data/body text. Actual font loading happens
+   in layout.tsx (next/font); this just points the active CSS variable at
+   whichever loaded font family matches the choice. */
+body,
+body[data-font="default"] {
+  --font-doto-active: var(--font-doto-loaded);
+  --font-mono-active: var(--font-mono-loaded);
+  --font-sans-active: var(--font-sans-loaded);
+}
+body[data-font="mono"] {
+  --font-doto-active: var(--font-doto-loaded);
+  --font-mono-active: var(--font-mono-loaded);
+  --font-sans-active: var(--font-mono-loaded);
+}
+body[data-font="classic"] {
+  --font-doto-active: var(--font-sans-loaded);
+  --font-mono-active: var(--font-mono-loaded);
+  --font-sans-active: var(--font-sans-loaded);
+}
+body[data-font="cyberpunk"] {
+  --font-doto-active: var(--font-orbitron-loaded);
+  --font-mono-active: var(--font-rajdhani-loaded);
+  --font-sans-active: var(--font-rajdhani-loaded);
 }
 
 body {
@@ -40,11 +251,17 @@ body {
 }
 
 @layer utilities {
-  /* Resting card elevation */
+  /* Resting card elevation - dark uses the original neumorphic dual-shadow;
+     light mode swaps to a single soft shadow, since the dark mode's
+     "lighter highlight" shadow direction reads as a dirty smudge on a
+     white card instead of a highlight. */
   .shadow-card {
     box-shadow:
       6px 6px 14px rgba(0, 0, 0, 0.5),
       -3px -3px 8px rgba(255, 255, 255, 0.015);
+  }
+  :root[data-theme="light"] .shadow-card {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
   }
 
   /* Raised/hero card elevation */
@@ -53,6 +270,9 @@ body {
       12px 12px 28px rgba(0, 0, 0, 0.6),
       -6px -6px 16px rgba(255, 255, 255, 0.02);
   }
+  :root[data-theme="light"] .shadow-hero {
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.1);
+  }
 
   /* Pressed/inset input elevation */
   .shadow-inset-input {
@@ -60,9 +280,31 @@ body {
       inset 4px 4px 10px rgba(0, 0, 0, 0.6),
       inset -2px -2px 8px rgba(255, 255, 255, 0.02);
   }
+  :root[data-theme="light"] .shadow-inset-input {
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.1);
+  }
 
-  /* Accent glow, for primary CTAs */
+  /* Accent glow, for primary CTAs - the glow itself uses the active accent
+     color (not a hardcoded lime), and is toned down in light mode where a
+     bright glow against a white background looks like a rendering bug
+     rather than a deliberate effect. */
   .shadow-accent-glow {
-    box-shadow: 0 0 26px rgba(198, 240, 77, 0.28);
+    box-shadow: 0 0 26px color-mix(in srgb, var(--color-accent) 28%, transparent);
+  }
+  :root[data-theme="light"] .shadow-accent-glow {
+    box-shadow: 0 0 14px color-mix(in srgb, var(--color-accent) 22%, transparent);
+  }
+
+  /* Small uppercase Doto section labels ("TODAY", "PROTEIN", "CALORIES VS
+     TARGET" etc.) - used dozens of times at 10-11px with heavy letter-
+     spacing. Doto's dot-matrix glyphs are drawn with thin strokes relative
+     to their bounding box, so at this size even a fully-opaque, correctly-
+     dark color still reads as faint - the previous fix (darkening the
+     --color-text-muted/faint variables) wasn't enough on its own. This
+     class fixes the actual cause: bumps the font-weight to Doto's bold
+     800 cut (the family is loaded at 400/700/800/900 - see layout.tsx) so
+     the dots are thick enough to read as solid text rather than a stipple. */
+  .label-mono {
+    font-weight: 800;
   }
 }
