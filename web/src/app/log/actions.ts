@@ -6,8 +6,12 @@ import { foods, foodLogs } from "@/db/schema"
 import {
   NewFoodSchema,
   LogEntrySchema,
+  AiFoodEstimateSchema,
+  LabelEstimateSchema,
   type NewFoodFormState,
   type LogEntryFormState,
+  type AiFoodEstimateFormState,
+  type LabelEstimateFormState,
 } from "@/lib/food-schema"
 import { redirect } from "next/navigation"
 import { eq } from "drizzle-orm"
@@ -50,6 +54,170 @@ export async function createFood(
   const suffix = context.toString() ? `&${context.toString()}` : ""
 
   redirect(`/log?foodId=${food.id}${suffix}`)
+}
+
+// Saves a confirmed AI photo estimate as a `foods` row (source "ai",
+// per-100g normalized from the user-confirmed portion) and immediately logs
+// it, in one step - unlike barcode/manual foods, an AI estimate isn't a
+// reusable catalog entry someone will look up again by name, so there's no
+// separate "create food" screen before this.
+export async function createAiFoodAndLog(
+  _prevState: AiFoodEstimateFormState,
+  formData: FormData
+): Promise<AiFoodEstimateFormState> {
+  const session = await auth()
+  if (!session?.user?.id) {
+    redirect("/")
+  }
+
+  const validated = AiFoodEstimateSchema.safeParse({
+    name: formData.get("name"),
+    portionG: formData.get("portionG"),
+    calories: formData.get("calories"),
+    protein: formData.get("protein"),
+    carbs: formData.get("carbs"),
+    fat: formData.get("fat"),
+    returnTo: formData.get("returnTo") ?? undefined,
+    date: formData.get("date") ?? undefined,
+    hour: formData.get("hour") ?? undefined,
+    timezone: formData.get("timezone") ?? undefined,
+  })
+
+  if (!validated.success) {
+    return { errors: validated.error.flatten().fieldErrors }
+  }
+
+  const { name, portionG, calories, protein, carbs, fat, returnTo, date, hour, timezone } =
+    validated.data
+  const ratio = 100 / portionG
+
+  const [food] = await db
+    .insert(foods)
+    .values({
+      name,
+      caloriesPer100g: calories * ratio,
+      proteinPer100g: protein * ratio,
+      carbsPer100g: carbs * ratio,
+      fatPer100g: fat * ratio,
+      source: "ai",
+    })
+    .returning({ id: foods.id })
+
+  const datetime =
+    date && hour !== undefined ? dateAndHourToUtc(date, hour, timezone ?? "UTC") : new Date()
+
+  await db.insert(foodLogs).values({
+    userId: session.user.id,
+    foodId: food.id,
+    quantityG: portionG,
+    calories,
+    protein,
+    carbs,
+    fat,
+    source: "ai_photo",
+    datetime,
+  })
+
+  const toast = encodeURIComponent(`Added · ${Math.round(calories)} kcal`)
+  const destination = returnTo && returnTo.startsWith("/") ? returnTo : "/"
+  const separator = destination.includes("?") ? "&" : "?"
+  redirect(`${destination}${separator}toast=${toast}`)
+}
+
+// Saves a confirmed nutrition-label OCR read as a `foods` row (source
+// "ai" - it's still an AI-produced entry, just from label text rather than
+// a photo of the meal itself) and logs it, same one-step pattern as
+// createAiFoodAndLog. Optional fields (saturatedFat/fiber/sugars/sodium)
+// are only set when the label actually printed them, matching the
+// "don't fake confidence" rule already used for OFF/manual foods.
+export async function createLabelFoodAndLog(
+  _prevState: LabelEstimateFormState,
+  formData: FormData
+): Promise<LabelEstimateFormState> {
+  const session = await auth()
+  if (!session?.user?.id) {
+    redirect("/")
+  }
+
+  const validated = LabelEstimateSchema.safeParse({
+    name: formData.get("name"),
+    servingG: formData.get("servingG"),
+    calories: formData.get("calories"),
+    protein: formData.get("protein"),
+    carbs: formData.get("carbs"),
+    fat: formData.get("fat"),
+    saturatedFat: formData.get("saturatedFat") || undefined,
+    fiber: formData.get("fiber") || undefined,
+    sugars: formData.get("sugars") || undefined,
+    sodiumMg: formData.get("sodiumMg") || undefined,
+    returnTo: formData.get("returnTo") ?? undefined,
+    date: formData.get("date") ?? undefined,
+    hour: formData.get("hour") ?? undefined,
+    timezone: formData.get("timezone") ?? undefined,
+  })
+
+  if (!validated.success) {
+    return { errors: validated.error.flatten().fieldErrors }
+  }
+
+  const {
+    name,
+    servingG,
+    calories,
+    protein,
+    carbs,
+    fat,
+    saturatedFat,
+    fiber,
+    sugars,
+    sodiumMg,
+    returnTo,
+    date,
+    hour,
+    timezone,
+  } = validated.data
+  const ratio = 100 / servingG
+  const sodiumG = sodiumMg != null ? sodiumMg / 1000 : undefined
+
+  const [food] = await db
+    .insert(foods)
+    .values({
+      name,
+      caloriesPer100g: calories * ratio,
+      proteinPer100g: protein * ratio,
+      carbsPer100g: carbs * ratio,
+      fatPer100g: fat * ratio,
+      saturatedFatPer100g: saturatedFat != null ? saturatedFat * ratio : null,
+      fiberPer100g: fiber != null ? fiber * ratio : null,
+      sugarsPer100g: sugars != null ? sugars * ratio : null,
+      sodiumPer100g: sodiumG != null ? sodiumG * ratio : null,
+      source: "ai",
+    })
+    .returning({ id: foods.id })
+
+  const datetime =
+    date && hour !== undefined ? dateAndHourToUtc(date, hour, timezone ?? "UTC") : new Date()
+
+  await db.insert(foodLogs).values({
+    userId: session.user.id,
+    foodId: food.id,
+    quantityG: servingG,
+    calories,
+    protein,
+    carbs,
+    fat,
+    saturatedFat: saturatedFat ?? null,
+    fiber: fiber ?? null,
+    sugars: sugars ?? null,
+    sodium: sodiumG ?? null,
+    source: "ai_photo",
+    datetime,
+  })
+
+  const toast = encodeURIComponent(`Added · ${Math.round(calories)} kcal`)
+  const destination = returnTo && returnTo.startsWith("/") ? returnTo : "/"
+  const separator = destination.includes("?") ? "&" : "?"
+  redirect(`${destination}${separator}toast=${toast}`)
 }
 
 export async function logEntry(

@@ -5,8 +5,8 @@ import { eq } from "drizzle-orm"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { ChevronRight, Droplet, Palette } from "lucide-react"
-import { toggleReminders } from "./actions"
 import { ToastFromParam } from "@/components/toast"
+import { RemindersToggle } from "@/components/reminders-toggle"
 
 // Settings — see design_handoff_macrograin/weekly+goals+accountandsettings.png
 // screen 15 "Account & settings": profile row, DATA SOURCES section with
@@ -28,10 +28,11 @@ export default async function SettingsPage() {
 
   const dataSources = [
     { label: "Open Food Facts", connected: true },
-    // Not actually integrated yet - no code anywhere calls USDA's API.
-    // Shown as "off" rather than a fake "connected" (the design mockup's
-    // literal label) so this row doesn't imply real coverage that isn't there.
-    { label: "USDA FoodData", connected: false },
+    // Reflects whether a real USDA_API_KEY is actually configured, not a
+    // hardcoded true/false - search silently degrades to OFF-only when the
+    // key is unset (see api/foods/search/route.ts), so this row should too
+    // rather than claiming a connection that isn't live.
+    { label: "USDA FoodData", connected: Boolean(process.env.USDA_API_KEY) },
   ]
 
   return (
@@ -127,23 +128,7 @@ export default async function SettingsPage() {
             </span>
           </Link>
 
-          <form action={toggleReminders} className="flex items-center justify-between px-4 py-3.5">
-            <input type="hidden" name="enabled" value={(!profile.remindersEnabled).toString()} />
-            <span className="text-sm text-text">Reminders</span>
-            <button
-              type="submit"
-              aria-label="Toggle reminders"
-              className={`relative h-6 w-10 rounded-full transition-colors ${
-                profile.remindersEnabled ? "bg-accent" : "bg-card-alt"
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 size-5 rounded-full bg-surface shadow-[0_0_0_1px_var(--color-hairline)] transition-all ${
-                  profile.remindersEnabled ? "left-4.5" : "left-0.5"
-                }`}
-              />
-            </button>
-          </form>
+          <RemindersToggle enabled={profile.remindersEnabled} />
         </div>
       </div>
 

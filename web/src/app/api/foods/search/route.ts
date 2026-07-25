@@ -3,6 +3,7 @@ import { db } from "@/db"
 import { foods } from "@/db/schema"
 import { like, inArray } from "drizzle-orm"
 import { searchFoodsByName } from "@/lib/open-food-facts"
+import { searchUsdaFoods } from "@/lib/usda"
 import { NextRequest } from "next/server"
 
 const PAGE_SIZE = 15
@@ -51,9 +52,12 @@ export async function GET(request: NextRequest) {
   const D1_PARAM_LIMIT = 90 // leaves headroom under the ~100 ceiling
   // Drizzle binds every column as a param, including $defaultFn ones (id,
   // createdAt) - so this is the *full* row width, not just the fields set
-  // explicitly below: id, barcode, name, brand, 4 core macros, 4 extended
-  // nutrition fields, source, createdAt = 14.
-  const COLUMNS_PER_ROW = 14
+  // explicitly below: id, fdcId, barcode, name, brand, 4 core macros, 4
+  // extended nutrition fields, source, createdAt = 15. Shared by both the
+  // OFF and USDA insert loops below - computed from the real column count
+  // so adding another column later can't silently reintroduce the "too
+  // many SQL variables" bug a hardcoded row count previously caused.
+  const COLUMNS_PER_ROW = 15
   const CHUNK_SIZE = Math.max(1, Math.floor(D1_PARAM_LIMIT / COLUMNS_PER_ROW))
   const inserted: typeof alreadyCached = []
   for (let i = 0; i < toInsert.length; i += CHUNK_SIZE) {
@@ -91,8 +95,15 @@ export async function GET(request: NextRequest) {
   // On the very first page only, also surface local-only matches (manually
   // created foods, or past barcode scans) that OFF's text search didn't
   // return - covers foods that exist in this app's own catalog but aren't
-  // phrased the way OFF indexes them.
+  // phrased the way OFF indexes them. USDA results are fetched here too,
+  // also first-page-only: USDA's own pagination semantics (page/pageSize)
+  // don't line up with OFF-driven `offset`/`nextOffset` math above, so
+  // rather than trying to interleave two independently-paginated sources
+  // this app - like the local-only case - only surfaces USDA on page 1,
+  // where a duplicate offset=0 fetch cost is negligible and "See more
+  // results" continuing to page purely through OFF afterward is fine.
   let localOnly: typeof offOrdered = []
+  let usdaOrdered: typeof offOrdered = []
   if (offset === 0) {
     // Postgres's `ilike` doesn't exist in SQLite (D1) - it's a hard SQL
     // syntax error there. SQLite's plain `LIKE` is already case-insensitive
@@ -104,9 +115,58 @@ export async function GET(request: NextRequest) {
       .limit(PAGE_SIZE)
     const offIds = new Set(offOrdered.map((f) => f.id))
     localOnly = localMatches.filter((f) => !offIds.has(f.id))
+
+    // USDA_API_KEY is optional (feature degrades to OFF-only search if
+    // unset, rather than breaking search entirely) - checked here instead
+    // of inside searchUsdaFoods so a missing key produces "no USDA results"
+    // silently rather than a thrown error surfacing as a 500 on every search.
+    if (process.env.USDA_API_KEY) {
+      try {
+        const { results: usdaHits } = await searchUsdaFoods(q, PAGE_SIZE)
+        const fdcIds = usdaHits.map((h) => h.fdcId)
+        const cachedUsda = fdcIds.length
+          ? await db.query.foods.findMany({ where: inArray(foods.fdcId, fdcIds) })
+          : []
+        const cachedByFdcId = new Map(cachedUsda.map((f) => [f.fdcId, f]))
+        const toInsertUsda = usdaHits.filter((h) => !cachedByFdcId.has(h.fdcId))
+
+        const insertedUsda: typeof cachedUsda = []
+        for (let i = 0; i < toInsertUsda.length; i += CHUNK_SIZE) {
+          const chunk = toInsertUsda.slice(i, i + CHUNK_SIZE)
+          const rows = await db
+            .insert(foods)
+            .values(
+              chunk.map((h) => ({
+                fdcId: h.fdcId,
+                barcode: h.barcode,
+                name: h.name,
+                brand: h.brand,
+                caloriesPer100g: h.caloriesPer100g,
+                proteinPer100g: h.proteinPer100g,
+                carbsPer100g: h.carbsPer100g,
+                fatPer100g: h.fatPer100g,
+                saturatedFatPer100g: h.saturatedFatPer100g,
+                fiberPer100g: h.fiberPer100g,
+                sugarsPer100g: h.sugarsPer100g,
+                sodiumPer100g: h.sodiumPer100g,
+                source: "usda" as const,
+              }))
+            )
+            .returning()
+          insertedUsda.push(...rows)
+        }
+
+        const byFdcId = new Map([...cachedUsda, ...insertedUsda].map((f) => [f.fdcId, f]))
+        usdaOrdered = usdaHits
+          .map((h) => byFdcId.get(h.fdcId))
+          .filter((f): f is NonNullable<typeof f> => f !== undefined)
+      } catch (e) {
+        console.error("[foods/search] USDA lookup failed:", e)
+      }
+    }
   }
 
-  const merged = [...localOnly, ...offOrdered]
+  const merged = [...localOnly, ...usdaOrdered, ...offOrdered]
   // Based on the raw hit count OFF actually returned, not how many of those
   // survived the completeness filter - a page can have fewer than PAGE_SIZE
   // usable results (some hits missing nutrition data) while OFF still has

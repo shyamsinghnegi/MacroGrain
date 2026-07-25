@@ -3,23 +3,33 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { BrowserMultiFormatReader } from "@zxing/browser"
-import { X, Zap } from "lucide-react"
+import { X, Zap, Camera, Image as ImageIcon } from "lucide-react"
 import Link from "next/link"
 
 type ScanState = "idle" | "searching" | "found" | "not_found" | "camera_error"
+type ScanMode = "barcode" | "ai_photo"
 
 export function ScanClient() {
   const router = useRouter()
   const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const controlsRef = useRef<{ stop: () => void } | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [mode, setMode] = useState<ScanMode>("barcode")
   const [state, setState] = useState<ScanState>("idle")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [capturing, setCapturing] = useState(false)
+  // "label" when gallery-picking for label OCR, "photo" for meal recognition -
+  // remembered so the hidden file input's onChange (fired after the OS
+  // picker closes) knows which endpoint to send the chosen image to.
+  const galleryKindRef = useRef<"photo" | "label">("photo")
 
   useEffect(() => {
     let cancelled = false
-    const reader = new BrowserMultiFormatReader()
 
-    async function start() {
+    async function startBarcode() {
+      const reader = new BrowserMultiFormatReader()
       setState("searching")
       try {
         const devices = await BrowserMultiFormatReader.listVideoInputDevices()
@@ -69,13 +79,118 @@ export function ScanClient() {
       }
     }
 
-    start()
+    async function startPhoto() {
+      setState("searching")
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+        })
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop())
+          return
+        }
+        streamRef.current = stream
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+        }
+        setState("idle")
+      } catch (e) {
+        if (!cancelled) {
+          setState("camera_error")
+          setErrorMessage(
+            e instanceof Error
+              ? e.message
+              : "Could not access the camera. Check browser permissions."
+          )
+        }
+      }
+    }
+
+    if (mode === "barcode") {
+      startBarcode()
+    } else {
+      startPhoto()
+    }
 
     return () => {
       cancelled = true
       controlsRef.current?.stop()
+      controlsRef.current = null
+      streamRef.current?.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
     }
-  }, [router])
+  }, [router, mode])
+
+  async function analyzePhoto(kind: "photo" | "label", blob: Blob) {
+    setCapturing(true)
+    try {
+      const formData = new FormData()
+      formData.set("photo", blob, "capture.jpg")
+
+      const endpoint = kind === "photo" ? "/api/scan/photo" : "/api/scan/label"
+      const res = await fetch(endpoint, { method: "POST", body: formData })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setState("camera_error")
+        setErrorMessage(data?.message ?? "Could not analyze photo. Try again.")
+        setCapturing(false)
+        return
+      }
+
+      controlsRef.current?.stop()
+      streamRef.current?.getTracks().forEach((t) => t.stop())
+
+      sessionStorage.setItem(
+        kind === "photo" ? "mg_ai_photo_result" : "mg_ai_label_result",
+        JSON.stringify(data)
+      )
+      router.push(kind === "photo" ? "/scan/photo-confirm" : "/scan/label-confirm")
+    } catch (e) {
+      setState("camera_error")
+      setErrorMessage(e instanceof Error ? e.message : "Could not analyze photo.")
+      setCapturing(false)
+    }
+  }
+
+  async function capturePhoto(kind: "photo" | "label") {
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    if (!video || !canvas || capturing) return
+
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    const ctx = canvas.getContext("2d")
+    if (!ctx) {
+      setState("camera_error")
+      setErrorMessage("Canvas not supported")
+      return
+    }
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+    const blob: Blob | null = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", 0.85)
+    )
+    if (!blob) {
+      setState("camera_error")
+      setErrorMessage("Could not capture photo.")
+      return
+    }
+
+    analyzePhoto(kind, blob)
+  }
+
+  function pickFromGallery(kind: "photo" | "label") {
+    galleryKindRef.current = kind
+    fileInputRef.current?.click()
+  }
+
+  function onGalleryFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = "" // allow re-picking the same file later
+    if (!file || capturing) return
+    analyzePhoto(galleryKindRef.current, file)
+  }
 
   return (
     <div className="fixed inset-0 z-40 bg-bg-deep">
@@ -84,6 +199,15 @@ export function ScanClient() {
         className="absolute inset-0 size-full object-cover"
         muted
         playsInline
+        autoPlay
+      />
+      <canvas ref={canvasRef} className="hidden" />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={onGalleryFileChosen}
+        className="hidden"
       />
 
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_40%,transparent,rgba(0,0,0,.7))]" />
@@ -96,27 +220,49 @@ export function ScanClient() {
         >
           <X size={18} />
         </Link>
+        <div className="flex items-center gap-1 rounded-full bg-black/50 p-1 backdrop-blur-md">
+          <button
+            type="button"
+            onClick={() => setMode("barcode")}
+            className={`rounded-full px-3 py-1.5 font-mono text-[10px] tracking-wide uppercase transition-colors ${
+              mode === "barcode" ? "bg-accent text-bg" : "text-text-muted"
+            }`}
+          >
+            Barcode
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("ai_photo")}
+            className={`rounded-full px-3 py-1.5 font-mono text-[10px] tracking-wide uppercase transition-colors ${
+              mode === "ai_photo" ? "bg-accent text-bg" : "text-text-muted"
+            }`}
+          >
+            AI Photo
+          </button>
+        </div>
         <span className="flex size-9 items-center justify-center rounded-full bg-black/50 text-text">
           <Zap size={15} />
         </span>
       </div>
 
-      <div className="pointer-events-none absolute top-1/2 left-1/2 z-10 h-[180px] w-[260px] -translate-x-1/2 -translate-y-1/2">
-        <span className="absolute top-0 left-0 h-8 w-8 rounded-tl-md border-t-[3px] border-l-[3px] border-accent" />
-        <span className="absolute top-0 right-0 h-8 w-8 rounded-tr-md border-t-[3px] border-r-[3px] border-accent" />
-        <span className="absolute bottom-0 left-0 h-8 w-8 rounded-bl-md border-b-[3px] border-l-[3px] border-accent" />
-        <span className="absolute right-0 bottom-0 h-8 w-8 rounded-br-md border-r-[3px] border-b-[3px] border-accent" />
-        {state === "searching" && (
-          <span className="absolute top-1/2 right-3.5 left-3.5 h-0.5 animate-pulse bg-accent shadow-[0_0_12px_color-mix(in_srgb,var(--color-accent)_80%,transparent)]" />
-        )}
-      </div>
+      {mode === "barcode" && (
+        <div className="pointer-events-none absolute top-1/2 left-1/2 z-10 h-[180px] w-[260px] -translate-x-1/2 -translate-y-1/2">
+          <span className="absolute top-0 left-0 h-8 w-8 rounded-tl-md border-t-[3px] border-l-[3px] border-accent" />
+          <span className="absolute top-0 right-0 h-8 w-8 rounded-tr-md border-t-[3px] border-r-[3px] border-accent" />
+          <span className="absolute bottom-0 left-0 h-8 w-8 rounded-bl-md border-b-[3px] border-l-[3px] border-accent" />
+          <span className="absolute right-0 bottom-0 h-8 w-8 rounded-br-md border-r-[3px] border-b-[3px] border-accent" />
+          {state === "searching" && (
+            <span className="absolute top-1/2 right-3.5 left-3.5 h-0.5 animate-pulse bg-accent shadow-[0_0_12px_color-mix(in_srgb,var(--color-accent)_80%,transparent)]" />
+          )}
+        </div>
+      )}
 
       <div className="absolute right-0 bottom-14 left-0 z-20 flex flex-col items-center gap-4 px-8">
         {state === "camera_error" ? (
           <div className="rounded-card border border-warning/40 bg-warning/10 px-4 py-3 text-center">
             <p className="text-sm text-warning">{errorMessage}</p>
           </div>
-        ) : (
+        ) : mode === "barcode" ? (
           <>
             <div className="flex items-center gap-1.5 font-mono text-xs text-accent">
               <span className="size-1.5 animate-pulse rounded-full bg-accent" />
@@ -124,6 +270,51 @@ export function ScanClient() {
             </div>
             <span className="font-mono text-[11px] text-text-faint">
               detect → read → confirm
+            </span>
+          </>
+        ) : (
+          <>
+            <div className="flex flex-wrap justify-center gap-3">
+              <button
+                type="button"
+                disabled={capturing}
+                onClick={() => capturePhoto("photo")}
+                className="flex items-center gap-2 rounded-pill bg-accent px-5 py-3 text-sm font-bold text-bg shadow-accent-glow disabled:opacity-60"
+              >
+                <Camera size={16} />
+                {capturing ? "Analyzing…" : "Snap meal"}
+              </button>
+              <button
+                type="button"
+                disabled={capturing}
+                onClick={() => capturePhoto("label")}
+                className="flex items-center gap-2 rounded-pill border-[1.5px] border-white/25 px-5 py-3 text-sm font-medium text-text disabled:opacity-60"
+              >
+                Read label
+              </button>
+            </div>
+            <div className="flex gap-4">
+              <button
+                type="button"
+                disabled={capturing}
+                onClick={() => pickFromGallery("photo")}
+                className="flex items-center gap-1.5 font-mono text-[11px] text-text-muted disabled:opacity-60"
+              >
+                <ImageIcon size={13} />
+                Meal from gallery
+              </button>
+              <button
+                type="button"
+                disabled={capturing}
+                onClick={() => pickFromGallery("label")}
+                className="flex items-center gap-1.5 font-mono text-[11px] text-text-muted disabled:opacity-60"
+              >
+                <ImageIcon size={13} />
+                Label from gallery
+              </button>
+            </div>
+            <span className="font-mono text-[11px] text-text-faint">
+              AI estimates nutrition · always double-check before saving
             </span>
           </>
         )}
