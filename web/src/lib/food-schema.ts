@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { logSource } from "@/db/schema"
 
 export const NewFoodSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
@@ -12,6 +13,16 @@ export const NewFoodSchema = z.object({
 export const LogEntrySchema = z.object({
   foodId: z.string().min(1),
   quantityG: z.coerce.number().min(1, "Enter a quantity greater than 0"),
+  source: z.enum(logSource).default("manual"),
+  // Optional explicit date+hour for logging into a specific timeline slot,
+  // e.g. from /timeline's "+ Add food at 2 PM". Defaults to "now" when absent.
+  date: z.string().date().optional(),
+  hour: z.coerce.number().int().min(0).max(23).optional(),
+  returnTo: z.string().optional(),
+  // The browser's IANA timezone, so an explicit date+hour is interpreted
+  // as that local time rather than UTC. Optional because standalone /log
+  // usage (no timeline context) doesn't need it - "now" is unambiguous.
+  timezone: z.string().optional(),
 })
 
 export type NewFoodFormState =

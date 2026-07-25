@@ -4,12 +4,25 @@ import { useActionState } from "react"
 import { createFood } from "./actions"
 import { Input, Label, FieldError } from "@/components/input"
 import { Button } from "@/components/button"
+import type { LogContext } from "./food-search"
 
-export function NewFoodForm({ initialName }: { initialName?: string }) {
+export function NewFoodForm({
+  initialName,
+  context = {},
+}: {
+  initialName?: string
+  context?: LogContext
+}) {
   const [state, formAction, pending] = useActionState(createFood, undefined)
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
+      {context.returnTo && (
+        <input type="hidden" name="returnTo" value={context.returnTo} />
+      )}
+      {context.date && <input type="hidden" name="date" value={context.date} />}
+      {context.hour && <input type="hidden" name="hour" value={context.hour} />}
+
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="name">Name</Label>
         <Input id="name" name="name" defaultValue={initialName} />
