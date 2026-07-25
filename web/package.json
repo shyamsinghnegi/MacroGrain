@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.2",
+    "@zxing/browser": "^0.2.1",
+    "@zxing/library": "^0.23.0",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.24.0",
     "next": "16.2.10",
@@ -31,6 +33,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4.113.0"
   }
 }

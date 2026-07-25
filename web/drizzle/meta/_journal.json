@@ -1,26 +1,61 @@
 {
   "version": "7",
-  "dialect": "postgresql",
+  "dialect": "sqlite",
   "entries": [
     {
       "idx": 0,
-      "version": "7",
-      "when": 1783788397355,
-      "tag": "0000_wide_slipstream",
+      "version": "6",
+      "when": 1784823035393,
+      "tag": "0000_outgoing_spirit",
       "breakpoints": true
     },
     {
       "idx": 1,
-      "version": "7",
-      "when": 1783789897766,
-      "tag": "0001_blue_aaron_stack",
+      "version": "6",
+      "when": 1784900817155,
+      "tag": "0001_ambiguous_firebrand",
       "breakpoints": true
     },
     {
       "idx": 2,
-      "version": "7",
-      "when": 1783792502061,
-      "tag": "0002_wealthy_shiva",
+      "version": "6",
+      "when": 1784905119214,
+      "tag": "0002_rainy_carnage",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1784905754693,
+      "tag": "0003_dusty_red_shift",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1784906885567,
+      "tag": "0004_absurd_scarecrow",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1784907806680,
+      "tag": "0005_uneven_moondragon",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1784909465827,
+      "tag": "0006_gifted_robin_chapel",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1784972803245,
+      "tag": "0007_neat_timeslip",
       "breakpoints": true
     }
   ]
