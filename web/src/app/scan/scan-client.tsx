@@ -20,10 +20,38 @@ export function ScanClient() {
   const [state, setState] = useState<ScanState>("idle")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [capturing, setCapturing] = useState(false)
+  const [torchSupported, setTorchSupported] = useState(false)
+  const [torchOn, setTorchOn] = useState(false)
   // "label" when gallery-picking for label OCR, "photo" for meal recognition -
   // remembered so the hidden file input's onChange (fired after the OS
   // picker closes) knows which endpoint to send the chosen image to.
   const galleryKindRef = useRef<"photo" | "label">("photo")
+
+  // Neither zxing's decodeFromVideoDevice nor the plain getUserMedia call
+  // below request any focus behavior - getUserMedia() constraints default
+  // to whatever the camera's own firmware picks, which on many devices is
+  // NOT continuous autofocus, producing the "stays blurry, never refocuses"
+  // symptom. `focusMode`/`torch` are non-standard "advanced" capabilities
+  // (part of the Image Capture API draft, not core MediaTrackConstraints),
+  // so this is entirely feature-detected: getCapabilities() lists what a
+  // given camera/browser actually supports before attempting to apply it -
+  // most desktop webcams and iOS Safari support neither at all.
+  function tuneVideoTrack(stream: MediaStream) {
+    const track = stream.getVideoTracks()[0]
+    if (!track) return
+
+    const capabilities = track.getCapabilities?.() as
+      | (MediaTrackCapabilities & { focusMode?: string[]; torch?: boolean })
+      | undefined
+
+    if (capabilities?.focusMode?.includes("continuous")) {
+      track
+        .applyConstraints({ advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet] })
+        .catch(() => {})
+    }
+
+    setTorchSupported(Boolean(capabilities?.torch))
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -67,6 +95,13 @@ export function ScanClient() {
           }
         )
         controlsRef.current = controls
+
+        // zxing manages this stream internally (not exposed via `controls`
+        // directly) but does assign it to the video element's srcObject
+        // (confirmed in its own source - addVideoSource), so it's readable
+        // from there right after decodeFromVideoDevice resolves.
+        const activeStream = videoRef.current.srcObject as MediaStream | null
+        if (activeStream) tuneVideoTrack(activeStream)
       } catch (e) {
         if (!cancelled) {
           setState("camera_error")
@@ -93,6 +128,7 @@ export function ScanClient() {
         if (videoRef.current) {
           videoRef.current.srcObject = stream
         }
+        tuneVideoTrack(stream)
         setState("idle")
       } catch (e) {
         if (!cancelled) {
@@ -118,8 +154,31 @@ export function ScanClient() {
       controlsRef.current = null
       streamRef.current?.getTracks().forEach((t) => t.stop())
       streamRef.current = null
+      setTorchSupported(false)
+      setTorchOn(false)
     }
   }, [router, mode])
+
+  // Reads the live stream directly off the video element rather than
+  // streamRef, since streamRef is only populated in AI Photo mode -
+  // zxing owns the barcode-mode stream internally, but always assigns it
+  // to videoRef.current.srcObject regardless (see tuneVideoTrack's comment).
+  async function toggleTorch() {
+    const stream = videoRef.current?.srcObject as MediaStream | null
+    const track = stream?.getVideoTracks()[0]
+    if (!track) return
+
+    const next = !torchOn
+    try {
+      await track.applyConstraints({ advanced: [{ torch: next } as MediaTrackConstraintSet] })
+      setTorchOn(next)
+    } catch {
+      // Some devices report torch: true in getCapabilities() but still
+      // reject applying it (confirmed as a real inconsistency across
+      // Android camera implementations) - fail silently rather than
+      // showing an error for a non-essential feature.
+    }
+  }
 
   async function analyzePhoto(kind: "photo" | "label", blob: Blob) {
     setCapturing(true)
@@ -240,9 +299,26 @@ export function ScanClient() {
             AI Photo
           </button>
         </div>
-        <span className="flex size-9 items-center justify-center rounded-full bg-black/50 text-text">
-          <Zap size={15} />
-        </span>
+        {torchSupported ? (
+          <button
+            type="button"
+            onClick={toggleTorch}
+            aria-label={torchOn ? "Turn off flash" : "Turn on flash"}
+            aria-pressed={torchOn}
+            className={`flex size-9 items-center justify-center rounded-full backdrop-blur-md transition-colors ${
+              torchOn ? "bg-accent text-bg" : "bg-black/50 text-text"
+            }`}
+          >
+            <Zap size={15} />
+          </button>
+        ) : (
+          // Reserves the same layout space so Barcode/AI Photo toggle stays
+          // centered - most devices (all of iOS, many Android cameras/
+          // browsers) don't expose torch control at all, confirmed via
+          // getCapabilities() rather than assumed, so the button is hidden
+          // entirely rather than shown non-functional.
+          <span className="size-9" />
+        )}
       </div>
 
       {mode === "barcode" && (
