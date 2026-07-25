@@ -22,6 +22,9 @@ export function ScanClient() {
   const [capturing, setCapturing] = useState(false)
   const [torchSupported, setTorchSupported] = useState(false)
   const [torchOn, setTorchOn] = useState(false)
+  const [tapFocusSupported, setTapFocusSupported] = useState(false)
+  const [focusRing, setFocusRing] = useState<{ x: number; y: number; key: number } | null>(null)
+  const focusRingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // "label" when gallery-picking for label OCR, "photo" for meal recognition -
   // remembered so the hidden file input's onChange (fired after the OS
   // picker closes) knows which endpoint to send the chosen image to.
@@ -41,7 +44,11 @@ export function ScanClient() {
     if (!track) return
 
     const capabilities = track.getCapabilities?.() as
-      | (MediaTrackCapabilities & { focusMode?: string[]; torch?: boolean })
+      | (MediaTrackCapabilities & {
+          focusMode?: string[]
+          torch?: boolean
+          pointsOfInterest?: unknown
+        })
       | undefined
 
     if (capabilities?.focusMode?.includes("continuous")) {
@@ -51,6 +58,15 @@ export function ScanClient() {
     }
 
     setTorchSupported(Boolean(capabilities?.torch))
+    // Tap-to-focus needs both a way to say "focus here" (pointsOfInterest)
+    // and a focus mode that will actually act on a single point rather than
+    // continuously re-deciding on its own - "single-shot" is the standard
+    // one-time-focus-then-lock mode real camera apps use for tap-to-focus.
+    // "manual" is accepted too since some Android implementations only
+    // expose that name for the same behavior.
+    const hasFocusPointMode =
+      capabilities?.focusMode?.includes("single-shot") || capabilities?.focusMode?.includes("manual")
+    setTapFocusSupported(Boolean(capabilities?.pointsOfInterest && hasFocusPointMode))
   }
 
   useEffect(() => {
@@ -117,8 +133,18 @@ export function ScanClient() {
     async function startPhoto() {
       setState("searching")
       try {
+        // No resolution was requested before, so the browser picked its own
+        // default - on mobile Chrome/Safari that's often ~640x480, nowhere
+        // near enough detail to read small nutrition-label print even with
+        // perfect focus. `ideal` (not `exact`) asks for the camera's best
+        // available up to 4K without hard-failing on devices that can't
+        // reach it - getUserMedia negotiates down automatically.
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 3840 },
+            height: { ideal: 2160 },
+          },
         })
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop())
@@ -156,6 +182,8 @@ export function ScanClient() {
       streamRef.current = null
       setTorchSupported(false)
       setTorchOn(false)
+      setTapFocusSupported(false)
+      if (focusRingTimeoutRef.current) clearTimeout(focusRingTimeoutRef.current)
     }
   }, [router, mode])
 
@@ -177,6 +205,51 @@ export function ScanClient() {
       // reject applying it (confirmed as a real inconsistency across
       // Android camera implementations) - fail silently rather than
       // showing an error for a non-essential feature.
+    }
+  }
+
+  // Standard tap-to-focus, matching what a native camera app does: tap a
+  // point on the preview, the camera focuses there once. Continuous
+  // autofocus (tuneVideoTrack) doesn't always recover well on close-up,
+  // low-contrast subjects like a nutrition label - a phone's own camera app
+  // solves the exact same problem with the exact same gesture, so this
+  // mirrors that rather than inventing new UI.
+  async function tapToFocus(e: React.PointerEvent<HTMLVideoElement>) {
+    const video = videoRef.current
+    const stream = video?.srcObject as MediaStream | null
+    const track = stream?.getVideoTracks()[0]
+    if (!video || !track || !tapFocusSupported) return
+
+    const rect = video.getBoundingClientRect()
+    // Normalized 0-1 coordinates, as pointsOfInterest requires - not raw
+    // pixels. video.getBoundingClientRect() is the rendered/displayed size
+    // (the video is CSS object-cover'd to fill the screen), which is the
+    // correct basis here since that's what the user is actually looking at
+    // and tapping, not the camera's native capture resolution.
+    const x = (e.clientX - rect.left) / rect.width
+    const y = (e.clientY - rect.top) / rect.height
+
+    setFocusRing({ x, y, key: Date.now() })
+    if (focusRingTimeoutRef.current) clearTimeout(focusRingTimeoutRef.current)
+    focusRingTimeoutRef.current = setTimeout(() => setFocusRing(null), 700)
+
+    const capabilities = track.getCapabilities?.() as
+      | (MediaTrackCapabilities & { focusMode?: string[] })
+      | undefined
+    const focusMode = capabilities?.focusMode?.includes("single-shot") ? "single-shot" : "manual"
+
+    try {
+      await track.applyConstraints({
+        advanced: [
+          {
+            focusMode,
+            pointsOfInterest: [{ x, y }],
+          } as MediaTrackConstraintSet,
+        ],
+      })
+    } catch {
+      // Same rationale as toggleTorch - getCapabilities() reporting support
+      // doesn't guarantee applyConstraints() succeeds on every device.
     }
   }
 
@@ -255,6 +328,7 @@ export function ScanClient() {
     <div className="fixed inset-0 z-40 bg-bg-deep">
       <video
         ref={videoRef}
+        onPointerDown={tapToFocus}
         className="absolute inset-0 size-full object-cover"
         muted
         playsInline
@@ -270,6 +344,14 @@ export function ScanClient() {
       />
 
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_40%,transparent,rgba(0,0,0,.7))]" />
+
+      {focusRing && (
+        <span
+          key={focusRing.key}
+          className="animate-scale-in pointer-events-none absolute z-20 size-16 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-accent"
+          style={{ left: `${focusRing.x * 100}%`, top: `${focusRing.y * 100}%` }}
+        />
+      )}
 
       <div className="absolute top-0 right-0 left-0 z-20 flex items-center justify-between px-6 pt-16">
         <Link
