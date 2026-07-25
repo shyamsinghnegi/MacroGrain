@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState } from "react"
+import { useActionState, useState } from "react"
 import { saveProfile } from "./actions"
 import { Label, FieldError } from "@/components/input"
 import { Button } from "@/components/button"
@@ -28,6 +28,17 @@ const goals = [
   { value: "cut", label: "Cut" },
   { value: "maintain", label: "Maintain" },
   { value: "bulk", label: "Bulk" },
+] as const
+
+// "How aggressive" - only meaningful for cut/bulk (maintain always resolves
+// to 0 kg/week, see lib/tdee.ts's paceToRate), but always collected here so
+// goalRate/currentTargetKcal are never left null after signup - previously
+// this question didn't exist at all during onboarding, only reachable later
+// via the standalone /goal screen most users never found.
+const paces = [
+  { value: "slow", label: "Slow", meta: "gentle" },
+  { value: "steady", label: "Steady", meta: "recommended" },
+  { value: "aggressive", label: "Aggressive", meta: "faster" },
 ] as const
 
 type Profile = {
@@ -86,6 +97,9 @@ export function ProfileForm({
   weightKg: number | undefined
 }) {
   const [state, formAction, pending] = useActionState(saveProfile, undefined)
+  const [selectedGoal, setSelectedGoal] = useState<(typeof goals)[number]["value"]>(
+    profile?.goal ?? "maintain"
+  )
 
   const isFirstTime = !profile
 
@@ -156,9 +170,19 @@ export function ProfileForm({
           name="goal"
           options={goals}
           defaultValue={profile?.goal ?? "maintain"}
+          onChange={setSelectedGoal}
         />
         <FieldError message={state?.errors?.goal?.[0]} />
       </div>
+
+      {selectedGoal !== "maintain" && (
+        <div className="flex flex-col gap-1.5">
+          <Label>How aggressive?</Label>
+          <SelectableList name="pace" options={paces} defaultValue="steady" />
+          <FieldError message={state?.errors?.pace?.[0]} />
+        </div>
+      )}
+      {selectedGoal === "maintain" && <input type="hidden" name="pace" value="steady" />}
 
       <Button type="submit" variant="accent" disabled={pending} className="mt-2">
         {pending ? "Saving..." : isFirstTime ? "Continue" : "Save changes"}

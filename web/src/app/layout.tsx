@@ -7,6 +7,7 @@ import { ToastFromParam } from "@/components/toast";
 import { TimezoneSync } from "@/components/timezone-sync";
 import { auth } from "@/auth";
 import { getThemeSettings } from "@/lib/theme";
+import { hasCompletedOnboarding } from "@/lib/onboarding";
 
 const doto = Doto({
   variable: "--font-doto-loaded",
@@ -48,11 +49,21 @@ const rajdhani = Rajdhani({
 export const metadata: Metadata = {
   title: "Macrograin",
   description: "Macro and calorie tracker",
+  applicationName: "Macrograin",
+  // iOS Safari doesn't read manifest.ts's icons/name for "Add to Home
+  // Screen" the way Chrome reads manifest.webmanifest - it needs these
+  // specific meta tags/link relations instead.
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Macrograin",
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: "#0a0a0a",
 };
 
 export default async function RootLayout({
@@ -76,6 +87,13 @@ export default async function RootLayout({
   // user had picked "Light" before switching to a palette.
   const effectiveTheme = themePreset === "none" ? theme : "dark";
 
+  // Nav is only meaningful once there's an actual app to navigate around in
+  // - a signed-in user still mid-setup (/profile/edit) would see tabs for
+  // Home/Log/Weight/Settings that immediately redirect back to setup, which
+  // is confusing, not useful. Cookie-only check (see lib/onboarding.ts) -
+  // no DB query on every navigation, same pattern as timezone/theme.
+  const onboarded = await hasCompletedOnboarding();
+
   return (
     <html
       lang="en"
@@ -86,7 +104,7 @@ export default async function RootLayout({
     >
       <body data-font={fontStyle} className="min-h-full flex flex-col">
         {children}
-        {session?.user && <BottomNav />}
+        {session?.user && onboarded && <BottomNav />}
         {session?.user && <TimezoneSync />}
         <Suspense fallback={null}>
           <ToastFromParam />

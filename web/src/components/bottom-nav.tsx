@@ -47,11 +47,11 @@ export function BottomNav() {
             key={tab.href}
             href={tab.href}
             prefetch={false}
-            className="flex flex-col items-center gap-1.5"
+            className="flex flex-col items-center gap-1.5 transition-transform duration-150 active:scale-90"
           >
             <TabIcon label={tab.label} active={active} />
             <span
-              className={`font-mono text-[9px] ${active ? "text-accent" : "text-text-faint"}`}
+              className={`font-mono text-[9px] transition-colors duration-150 ${active ? "text-accent" : "text-text-faint"}`}
             >
               {tab.label}
             </span>
@@ -68,7 +68,7 @@ function TabIcon({ label, active }: { label: string; active: boolean }) {
   if (label === "HOME") {
     return (
       <span
-        className="size-[18px] rounded-[5px]"
+        className="size-[18px] rounded-[5px] transition-[border-color] duration-150"
         style={{ border: `1.5px solid ${color}` }}
       />
     )
@@ -76,27 +76,30 @@ function TabIcon({ label, active }: { label: string; active: boolean }) {
   if (label === "LOG") {
     return (
       <span className="flex w-[18px] flex-col gap-[3px]">
-        <i className="h-[1.5px]" style={{ background: color }} />
-        <i className="h-[1.5px]" style={{ background: color }} />
-        <i className="h-[1.5px]" style={{ background: color }} />
+        <i className="h-[1.5px] transition-colors duration-150" style={{ background: color }} />
+        <i className="h-[1.5px] transition-colors duration-150" style={{ background: color }} />
+        <i className="h-[1.5px] transition-colors duration-150" style={{ background: color }} />
       </span>
     )
   }
   if (label === "WEIGHT") {
     return (
       <span
-        className="relative h-3 w-[18px]"
+        className="relative h-3 w-[18px] transition-[border-color] duration-150"
         style={{ borderBottom: `1.5px solid ${color}` }}
       >
         <i
-          className="absolute bottom-0 left-0 h-2 w-full origin-left"
+          className="absolute bottom-0 left-0 h-2 w-full origin-left transition-[border-color] duration-150"
           style={{ borderTop: `1.5px solid ${color}`, transform: "skewY(-18deg)" }}
         />
       </span>
     )
   }
   return (
-    <span className="text-base leading-[0.6] tracking-[1px]" style={{ color }}>
+    <span
+      className="text-base leading-[0.6] tracking-[1px] transition-colors duration-150"
+      style={{ color }}
+    >
       •••
     </span>
   )

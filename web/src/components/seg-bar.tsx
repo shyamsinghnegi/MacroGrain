@@ -26,14 +26,14 @@ export function SegBar({
       {Array.from({ length: clampedFilled }, (_, i) => (
         <div
           key={`on-${i}`}
-          className="flex-1 rounded-[2px]"
-          style={{ background: color }}
+          className="animate-scale-in flex-1 rounded-[2px]"
+          style={{ background: color, animationDelay: `${Math.min(i, 12) * 15}ms` }}
         />
       ))}
       {Array.from({ length: clampedTotal - clampedFilled }, (_, i) => (
         <div
           key={`off-${i}`}
-          className="flex-1 rounded-[2px] bg-card-alt shadow-[inset_0_0_0_1px_var(--color-hairline)]"
+          className="flex-1 rounded-[2px] bg-card-alt shadow-[inset_0_0_0_1px_var(--color-hairline)] transition-colors duration-200"
         />
       ))}
     </div>

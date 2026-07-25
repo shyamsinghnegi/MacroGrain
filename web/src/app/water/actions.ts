@@ -27,17 +27,6 @@ export async function addWater(formData: FormData) {
   revalidatePath("/")
 }
 
-export async function removeLastWater(formData: FormData) {
-  const userId = await requireUserId()
-  const entryId = formData.get("entryId")
-  if (typeof entryId !== "string" || !entryId) return
-
-  await db
-    .delete(waterLogs)
-    .where(and(eq(waterLogs.id, entryId), eq(waterLogs.userId, userId)))
-  revalidatePath("/")
-}
-
 const SaveWaterGoalSchema = z.object({
   waterGoalMl: z.coerce.number().int().min(500, "Goal must be at least 500 ml").max(10000, "Goal must be under 10000 ml"),
 })

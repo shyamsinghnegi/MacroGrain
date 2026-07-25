@@ -1,0 +1,28 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="200" rx="42" fill="#0a0a0a" />
+  <!-- Ring built as 4 explicit 62-degree arcs (not one dashed circle) so a
+       gap of exactly 14 degrees is left on each side of every tick (0/90/
+       180/270deg), guaranteeing the tick always sits in open space -
+       coordinates computed directly (cx=100 cy=100 r=70), not eyeballed.
+       A uniform stroke-dasharray's phase doesn't divide evenly into 4 equal
+       ticks and can drift a dash onto a tick, fusing them visually. -->
+  <g stroke="#c6f24d" stroke-width="6" fill="none" stroke-linecap="round">
+    <path d="M 116.93 32.08 A 70 70 0 0 1 167.92 83.07" />
+    <path d="M 167.92 116.93 A 70 70 0 0 1 116.93 167.92" />
+    <path d="M 83.07 167.92 A 70 70 0 0 1 32.08 116.93" />
+    <path d="M 32.08 83.07 A 70 70 0 0 1 83.07 32.08" />
+  </g>
+  <g stroke="#c6f24d" stroke-width="6" stroke-linecap="round">
+    <line x1="100" y1="16" x2="100" y2="30" />
+    <line x1="100" y1="170" x2="100" y2="184" />
+    <line x1="16" y1="100" x2="30" y2="100" />
+    <line x1="170" y1="100" x2="184" y2="100" />
+  </g>
+  <path
+    d="M100 55 C122 75 130 100 100 145 C70 100 78 75 100 55 Z"
+    stroke="#c6f24d"
+    stroke-width="7"
+    stroke-linejoin="round"
+  />
+  <line x1="100" y1="65" x2="100" y2="135" stroke="#c6f24d" stroke-width="5" stroke-linecap="round" />
+</svg>

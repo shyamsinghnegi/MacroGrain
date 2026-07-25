@@ -39,6 +39,34 @@ export const GOAL_RATE_KG_PER_WEEK: Record<(typeof goal)[number], number> = {
   bulk: 0.25,
 }
 
+// Slider range per goal direction, shared by the /goal screen's rate slider
+// and onboarding's slow/steady/aggressive pace question. `slow`/`aggressive`
+// name the left/right ends of the range directly (rather than min/max),
+// since for a cut the aggressive end is the more-negative number - using
+// min/max previously meant "min" (-1, the big/aggressive deficit) got
+// treated as the slow end, so dragging toward "aggressive" shrank the
+// deficit instead of growing it. "steady" isn't a slider position - it's
+// the reported GOAL_RATE_KG_PER_WEEK default itself (see PACE_TO_RATE).
+export const RATE_RANGE: Record<(typeof goal)[number], { slow: number; aggressive: number }> = {
+  cut: { slow: -0.1, aggressive: -1 },
+  maintain: { slow: 0, aggressive: 0 },
+  bulk: { slow: 0.1, aggressive: 0.5 },
+}
+
+export const pace = ["slow", "steady", "aggressive"] as const
+export type Pace = (typeof pace)[number]
+
+// Maps onboarding's 3-way pace question to an actual kg/week rate per goal.
+// "steady" uses GOAL_RATE_KG_PER_WEEK directly (the same "normal" default
+// already used everywhere a rate isn't otherwise specified), not a
+// recomputed midpoint - keeps one single source of truth for what "normal"
+// means instead of two numbers that could drift apart.
+export function paceToRate(userGoal: (typeof goal)[number], selectedPace: Pace): number {
+  if (userGoal === "maintain") return 0
+  if (selectedPace === "steady") return GOAL_RATE_KG_PER_WEEK[userGoal]
+  return RATE_RANGE[userGoal][selectedPace]
+}
+
 export function ageFromBirthDate(birthDate: string, asOf: Date = new Date()) {
   const dob = new Date(`${birthDate}T00:00:00.000Z`)
   let age = asOf.getUTCFullYear() - dob.getUTCFullYear()

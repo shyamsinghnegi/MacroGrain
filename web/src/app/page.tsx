@@ -15,7 +15,7 @@ import { DitherBg } from "@/components/dither-bg"
 import { CalorieChart } from "@/components/calorie-chart"
 import { WaterWidget } from "@/components/water-widget"
 import { todayWaterTotal } from "@/app/water/actions"
-import { WaterReminders } from "@/components/water-reminders"
+import { OnboardingCookieSync } from "@/components/onboarding-cookie-sync"
 
 async function signInWithGoogle() {
   "use server"
@@ -240,7 +240,7 @@ export default async function Home({
         <WaterWidget consumedMl={waterConsumedMl} goalMl={profile.waterGoalMl} />
       </div>
 
-      {profile.remindersEnabled && <WaterReminders goalMl={profile.waterGoalMl} />}
+      <OnboardingCookieSync />
 
       {hasLoggedToday ? (
         <div className="relative z-10 mx-4 sm:mx-6 flex gap-2.5">

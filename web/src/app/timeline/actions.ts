@@ -2,7 +2,7 @@
 
 import { auth } from "@/auth"
 import { db } from "@/db"
-import { foodLogs } from "@/db/schema"
+import { foodLogs, waterLogs } from "@/db/schema"
 import { redirect } from "next/navigation"
 import { eq, and } from "drizzle-orm"
 import { z } from "zod"
@@ -99,4 +99,24 @@ export async function deleteEntry(formData: FormData) {
     .where(and(eq(foodLogs.id, entryId), eq(foodLogs.userId, userId)))
 
   revalidatePath("/timeline")
+}
+
+// Deletes a single water log entry from the timeline view - the timeline is
+// now the one place individual water entries are visible (the dashboard
+// widget only ever showed a same-day total), so this is also the natural
+// place to let a user undo a mis-tap. Replaces water/actions.ts's
+// removeLastWater, which was written but never wired to any UI - kept here
+// instead since /timeline already owns per-entry delete for food logs and
+// this follows the exact same ownership-check pattern.
+export async function deleteWaterEntry(formData: FormData) {
+  const userId = await requireUserId()
+  const entryId = formData.get("entryId")
+  if (typeof entryId !== "string" || !entryId) return
+
+  await db
+    .delete(waterLogs)
+    .where(and(eq(waterLogs.id, entryId), eq(waterLogs.userId, userId)))
+
+  revalidatePath("/timeline")
+  revalidatePath("/")
 }

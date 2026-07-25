@@ -5,7 +5,7 @@ import Link from "next/link"
 import { saveGoal } from "./actions"
 import { Button } from "@/components/button"
 import { GOAL_COPY } from "@/lib/targets"
-import { initialTarget, GOAL_RATE_KG_PER_WEEK, type ProfileForTdee } from "@/lib/tdee"
+import { initialTarget, GOAL_RATE_KG_PER_WEEK, RATE_RANGE, type ProfileForTdee } from "@/lib/tdee"
 import type { goal as goalEnumType } from "@/db/schema"
 
 type Goal = (typeof goalEnumType)[number]
@@ -15,19 +15,6 @@ const goals: { value: Goal; label: string }[] = [
   { value: "maintain", label: "Maintain" },
   { value: "bulk", label: "Bulk" },
 ]
-
-// Slider range per goal direction - "maintain" has no meaningful rate to
-// drag (0 kg/week always). `slow`/`aggressive` name the left/right ends of
-// the track directly (rather than min/max), since for a cut the aggressive
-// end is the more-negative number - using min/max here previously meant
-// "min" (-1, the big/aggressive deficit) got treated as the slow/left end,
-// so dragging right toward "aggressive" actually shrank the deficit and
-// increased the calorie target instead of decreasing it.
-const RATE_RANGE: Record<Goal, { slow: number; aggressive: number }> = {
-  cut: { slow: -0.1, aggressive: -1 },
-  maintain: { slow: 0, aggressive: 0 },
-  bulk: { slow: 0.1, aggressive: 0.5 },
-}
 
 function rateToSliderPct(rate: number, goal: Goal) {
   const { slow, aggressive } = RATE_RANGE[goal]

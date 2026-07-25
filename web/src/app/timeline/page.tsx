@@ -1,6 +1,6 @@
 import { auth } from "@/auth"
 import { db } from "@/db"
-import { foodLogs, foods } from "@/db/schema"
+import { foodLogs, foods, waterLogs } from "@/db/schema"
 import { redirect } from "next/navigation"
 import { and, eq, gte, lt } from "drizzle-orm"
 import Link from "next/link"
@@ -25,28 +25,48 @@ export default async function TimelinePage({
   const prevDay = new Date(startOfDay.getTime() - 86_400_000)
   const nextDay = startOfNextDay
 
-  const entries = await db
-    .select({
-      id: foodLogs.id,
-      datetime: foodLogs.datetime,
-      quantityG: foodLogs.quantityG,
-      calories: foodLogs.calories,
-      protein: foodLogs.protein,
-      carbs: foodLogs.carbs,
-      fat: foodLogs.fat,
-      source: foodLogs.source,
-      name: foods.name,
-    })
-    .from(foodLogs)
-    .innerJoin(foods, eq(foodLogs.foodId, foods.id))
-    .where(
-      and(
-        eq(foodLogs.userId, session.user.id),
-        gte(foodLogs.datetime, startOfDay),
-        lt(foodLogs.datetime, startOfNextDay)
+  // Both queries are independent - run concurrently rather than sequentially
+  // (same reasoning as the dashboard's Promise.all: each is a separate D1
+  // REST round-trip, not a local call).
+  const [entries, waterEntries] = await Promise.all([
+    db
+      .select({
+        id: foodLogs.id,
+        datetime: foodLogs.datetime,
+        quantityG: foodLogs.quantityG,
+        calories: foodLogs.calories,
+        protein: foodLogs.protein,
+        carbs: foodLogs.carbs,
+        fat: foodLogs.fat,
+        source: foodLogs.source,
+        name: foods.name,
+      })
+      .from(foodLogs)
+      .innerJoin(foods, eq(foodLogs.foodId, foods.id))
+      .where(
+        and(
+          eq(foodLogs.userId, session.user.id),
+          gte(foodLogs.datetime, startOfDay),
+          lt(foodLogs.datetime, startOfNextDay)
+        )
       )
-    )
-    .orderBy(foodLogs.datetime)
+      .orderBy(foodLogs.datetime),
+    db
+      .select({
+        id: waterLogs.id,
+        datetime: waterLogs.datetime,
+        amountMl: waterLogs.amountMl,
+      })
+      .from(waterLogs)
+      .where(
+        and(
+          eq(waterLogs.userId, session.user.id),
+          gte(waterLogs.datetime, startOfDay),
+          lt(waterLogs.datetime, startOfNextDay)
+        )
+      )
+      .orderBy(waterLogs.datetime),
+  ])
 
   const dateLabel = startOfDay.toLocaleDateString("en-US", {
     weekday: "short",
@@ -80,6 +100,7 @@ export default async function TimelinePage({
 
       <TimelineClient
         entries={entries.map((e) => ({ ...e, datetime: e.datetime.toISOString() }))}
+        waterEntries={waterEntries.map((w) => ({ ...w, datetime: w.datetime.toISOString() }))}
         dateParam={toDateParam(day, tz)}
         timezone={tz}
       />

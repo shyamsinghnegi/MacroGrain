@@ -7,6 +7,8 @@ import { ProfileSchema, type ProfileFormState } from "@/lib/profile-schema"
 import { redirect } from "next/navigation"
 import { toDateParam } from "@/lib/dates"
 import { getTimezone } from "@/lib/timezone"
+import { initialTarget, paceToRate } from "@/lib/tdee"
+import { markOnboardingComplete } from "@/lib/onboarding"
 
 export async function saveProfile(
   _prevState: ProfileFormState,
@@ -24,16 +26,30 @@ export async function saveProfile(
     birthDate: formData.get("birthDate"),
     activityLevel: formData.get("activityLevel"),
     goal: formData.get("goal"),
+    pace: formData.get("pace"),
   })
 
   if (!validated.success) {
     return { errors: validated.error.flatten().fieldErrors }
   }
 
-  const { heightCm, weightKg, sex, birthDate, activityLevel, goal } = validated.data
+  const { heightCm, weightKg, sex, birthDate, activityLevel, goal, pace } = validated.data
   const userId = session.user.id
   const tz = await getTimezone()
   const today = toDateParam(new Date(), tz)
+
+  // Resolve the chosen pace to an actual kg/week rate and compute the
+  // initial target right away, same as goal/actions.ts does for a later
+  // goal change - so a brand new profile never sits with goalRate/
+  // currentTargetKcal left null, which previously only got populated the
+  // first time someone separately visited the standalone /goal screen.
+  const rateKgPerWeek = paceToRate(goal, pace)
+  const goalRate = Math.round(rateKgPerWeek * 100)
+  const currentTargetKcal = initialTarget(
+    { heightCm, sex, birthDate, activityLevel, goal },
+    weightKg,
+    rateKgPerWeek
+  )
 
   // Not wrapped in db.transaction(): Cloudflare D1's REST query API is
   // stateless per HTTP request and rejects raw BEGIN/COMMIT statements
@@ -44,10 +60,19 @@ export async function saveProfile(
   // versus the transaction wrapper which was throwing on every call.
   await db
     .insert(profiles)
-    .values({ userId, heightCm, sex, birthDate, activityLevel, goal })
+    .values({ userId, heightCm, sex, birthDate, activityLevel, goal, goalRate, currentTargetKcal })
     .onConflictDoUpdate({
       target: profiles.userId,
-      set: { heightCm, sex, birthDate, activityLevel, goal, updatedAt: new Date() },
+      set: {
+        heightCm,
+        sex,
+        birthDate,
+        activityLevel,
+        goal,
+        goalRate,
+        currentTargetKcal,
+        updatedAt: new Date(),
+      },
     })
 
   await db
@@ -57,6 +82,8 @@ export async function saveProfile(
       target: [weightLogs.userId, weightLogs.date],
       set: { weightKg },
     })
+
+  await markOnboardingComplete()
 
   redirect("/profile?toast=Profile+saved")
 }

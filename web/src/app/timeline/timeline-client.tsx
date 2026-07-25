@@ -2,8 +2,8 @@
 
 import { useRef, useState, useTransition } from "react"
 import Link from "next/link"
-import { X, GripVertical } from "lucide-react"
-import { moveEntry, copyEntry, deleteEntry } from "./actions"
+import { X, GripVertical, Droplet } from "lucide-react"
+import { moveEntry, copyEntry, deleteEntry, deleteWaterEntry } from "./actions"
 import { SourceBadge } from "@/components/source-badge"
 import { hourInTimezone } from "@/lib/dates"
 
@@ -19,16 +19,24 @@ type Entry = {
   name: string
 }
 
+type WaterEntry = {
+  id: string
+  datetime: string
+  amountMl: number
+}
+
 // Long-press timing before the Move/Copy action menu appears - matches
 // common mobile long-press conventions (iOS/Android context menus).
 const LONG_PRESS_MS = 450
 
 export function TimelineClient({
   entries,
+  waterEntries,
   dateParam,
   timezone,
 }: {
   entries: Entry[]
+  waterEntries: WaterEntry[]
   dateParam: string
   timezone: string
 }) {
@@ -44,6 +52,22 @@ export function TimelineClient({
     const list = entriesByHour.get(hour) ?? []
     list.push(entry)
     entriesByHour.set(hour, list)
+  }
+
+  const waterByHour = new Map<number, WaterEntry[]>()
+  for (const entry of waterEntries) {
+    const hour = hourInTimezone(new Date(entry.datetime), timezone)
+    const list = waterByHour.get(hour) ?? []
+    list.push(entry)
+    waterByHour.set(hour, list)
+  }
+
+  function handleDeleteWater(entryId: string) {
+    const formData = new FormData()
+    formData.set("entryId", entryId)
+    startTransition(async () => {
+      await deleteWaterEntry(formData)
+    })
   }
 
   function startLongPress(entryId: string) {
@@ -99,6 +123,7 @@ export function TimelineClient({
       <div className="flex w-full flex-col">
         {Array.from({ length: 24 }, (_, hour) => hour).map((hour) => {
           const hourEntries = entriesByHour.get(hour) ?? []
+          const hourWater = waterByHour.get(hour) ?? []
           const nextHour = (hour + 1) % 24
           const period = hour < 12 ? "am" : "pm"
           const nextPeriod = nextHour < 12 ? "am" : "pm"
@@ -130,11 +155,32 @@ export function TimelineClient({
               </div>
 
               <div className="flex min-h-8 min-w-0 flex-1 flex-col gap-2">
-                {hourEntries.length === 0 && (
+                {hourEntries.length === 0 && hourWater.length === 0 && (
                   <p className="pt-1 font-mono text-[11px] text-text-faint">
                     Nothing logged
                   </p>
                 )}
+                {hourWater.map((water) => (
+                  <div
+                    key={water.id}
+                    className="animate-fade-in-up flex items-center gap-2 rounded-card border border-info/25 bg-info/8 px-3 py-2"
+                  >
+                    <Droplet size={14} className="shrink-0 text-info" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-mono text-sm text-text">{water.amountMl} ml</p>
+                      <p className="font-mono text-[11px] text-text-muted">Water</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteWater(water.id)}
+                      disabled={isPending}
+                      aria-label="Remove water entry"
+                      className="flex size-6 shrink-0 items-center justify-center rounded-full text-text-faint transition-colors hover:text-warning"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
                 {hourEntries.map((entry) => (
                   <div
                     key={entry.id}
@@ -150,7 +196,7 @@ export function TimelineClient({
                     onPointerDown={() => startLongPress(entry.id)}
                     onPointerUp={cancelLongPress}
                     onPointerLeave={cancelLongPress}
-                    className="relative flex items-center gap-2 rounded-card border border-hairline bg-card px-3 py-2 shadow-card"
+                    className="animate-fade-in-up relative flex items-center gap-2 rounded-card border border-hairline bg-card px-3 py-2 shadow-card"
                   >
                     <GripVertical
                       size={14}
@@ -171,14 +217,14 @@ export function TimelineClient({
                       onClick={() => handleDelete(entry.id)}
                       disabled={isPending}
                       aria-label="Remove entry"
-                      className="flex size-6 shrink-0 items-center justify-center rounded-full text-text-faint hover:text-warning"
+                      className="flex size-6 shrink-0 items-center justify-center rounded-full text-text-faint transition-colors hover:text-warning"
                     >
                       <X size={14} />
                     </button>
 
                     {actionMenuFor === entry.id && (
                       <div
-                        className="absolute top-full right-0 z-20 mt-1 flex gap-1 rounded-card border border-hairline bg-card-alt p-1 shadow-hero"
+                        className="animate-scale-in absolute top-full right-0 z-20 mt-1 flex origin-top-right gap-1 rounded-card border border-hairline bg-card-alt p-1 shadow-hero"
                         onPointerLeave={() => setActionMenuFor(null)}
                       >
                         <button

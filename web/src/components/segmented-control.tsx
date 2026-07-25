@@ -7,10 +7,12 @@ export function SegmentedControl<T extends string>({
   name,
   options,
   defaultValue,
+  onChange,
 }: {
   name: string
   options: readonly { value: T; label: string }[]
   defaultValue?: T
+  onChange?: (value: T) => void
 }) {
   return (
     <div className="flex w-fit gap-1 rounded-pill bg-card p-1 shadow-inset-input">
@@ -21,6 +23,7 @@ export function SegmentedControl<T extends string>({
             name={name}
             value={option.value}
             defaultChecked={option.value === defaultValue}
+            onChange={() => onChange?.(option.value)}
             className="peer sr-only"
           />
           <span className="block cursor-pointer rounded-pill px-4 py-1.5 text-center text-sm text-text-muted transition-all duration-150 peer-checked:bg-text peer-checked:text-bg peer-focus-visible:outline-2 peer-focus-visible:outline-accent peer-focus-visible:outline-offset-2">

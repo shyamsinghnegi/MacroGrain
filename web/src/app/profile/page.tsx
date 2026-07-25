@@ -6,6 +6,7 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { buttonClass } from "@/components/button"
 import { WeightChart } from "@/components/weight-chart"
+import { OnboardingCookieSync } from "@/components/onboarding-cookie-sync"
 
 const activityLabels: Record<string, string> = {
   sedentary: "Sedentary",
@@ -76,6 +77,7 @@ export default async function ProfilePage() {
 
   return (
     <div className="mx-auto flex w-full flex-col gap-6 px-4 sm:px-6 pt-16 pb-28 sm:max-w-xl">
+      <OnboardingCookieSync />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-text">Profile</h1>
         <Link href="/profile/edit" className={buttonClass("secondary")}>

@@ -1,7 +1,8 @@
 "use client"
 
 import { useTransition } from "react"
-import { Droplet } from "lucide-react"
+import Link from "next/link"
+import { Droplet, ChevronRight } from "lucide-react"
 import { addWater } from "@/app/water/actions"
 import { SegBar } from "@/components/seg-bar"
 
@@ -33,9 +34,18 @@ export function WaterWidget({
           <Droplet size={11} className="text-info" />
           Water
         </p>
-        <p className="font-mono text-sm text-text">
-          {(consumedMl / 1000).toFixed(1)} / {(goalMl / 1000).toFixed(1)} L
-        </p>
+        <div className="flex items-center gap-1">
+          <p className="font-mono text-sm text-text">
+            {(consumedMl / 1000).toFixed(1)} / {(goalMl / 1000).toFixed(1)} L
+          </p>
+          <Link
+            href="/timeline"
+            aria-label="Edit logged water"
+            className="flex size-5 items-center justify-center text-text-faint"
+          >
+            <ChevronRight size={14} />
+          </Link>
+        </div>
       </div>
       <div className="mt-2">
         <SegBar filled={filled} total={20} color="var(--color-info)" height={8} />
@@ -47,7 +57,7 @@ export function WaterWidget({
             type="button"
             disabled={pending}
             onClick={() => logAmount(amount)}
-            className="flex-1 rounded-pill border border-hairline bg-surface py-2 font-mono text-xs text-text-muted transition-colors disabled:opacity-50"
+            className="flex-1 rounded-pill border border-hairline bg-surface py-2 font-mono text-xs text-text-muted transition-all duration-150 active:scale-95 disabled:opacity-50"
           >
             +{amount} ml
           </button>

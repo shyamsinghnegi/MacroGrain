@@ -307,4 +307,73 @@ body {
   .label-mono {
     font-weight: 800;
   }
+
+  /* Shared motion primitives - kept minimal and CSS-only (no animation
+     library) to match this project's existing zero-dependency approach.
+     Durations intentionally short (150-220ms): this is a data-entry/
+     tracking app used many times a day, not a marketing site - animation
+     should register as "responsive" not "delightful," and anything slower
+     starts to feel like friction on repeat use. */
+  @keyframes mg-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes mg-fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes mg-toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  @keyframes mg-scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-fade-in {
+    animation: mg-fade-in 220ms ease-out both;
+  }
+  .animate-fade-in-up {
+    animation: mg-fade-in-up 200ms ease-out both;
+  }
+  .animate-toast-in {
+    animation: mg-toast-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .animate-scale-in {
+    animation: mg-scale-in 150ms ease-out both;
+  }
+
+  /* Respect reduced-motion preference - disable the decorative animations
+     above entirely rather than just shortening them, per WCAG guidance. */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-fade-in,
+    .animate-fade-in-up,
+    .animate-toast-in,
+    .animate-scale-in {
+      animation: none;
+    }
+  }
 }

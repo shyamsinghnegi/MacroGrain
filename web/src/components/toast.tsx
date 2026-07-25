@@ -48,7 +48,7 @@ export function ToastFromParam() {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-24 z-50 flex justify-center px-6">
       <div
-        className={`pointer-events-auto flex items-center gap-2 rounded-pill bg-card-alt px-4 py-2.5 shadow-hero ${
+        className={`animate-toast-in pointer-events-auto flex items-center gap-2 rounded-pill bg-card-alt px-4 py-2.5 shadow-hero ${
           isWarning ? "border border-warning/50" : "border border-accent/50"
         }`}
       >
