@@ -5,6 +5,7 @@ import Link from "next/link"
 import { NewFoodForm } from "./new-food-form"
 import { Input } from "@/components/input"
 import { buttonClass } from "@/components/button"
+import { Skeleton } from "@/components/skeleton"
 
 type Food = {
   id: string
@@ -65,6 +66,7 @@ export function FoodSearch({
   })
   const [results, setResults] = useState<Food[]>([])
   const [nextOffset, setNextOffset] = useState<number | null>(null)
+  const [searching, setSearching] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
@@ -73,8 +75,12 @@ export function FoodSearch({
   const runSearch = useCallback((q: string, offset: number) => {
     const requestId = ++requestIdRef.current
     const isFirstPage = offset === 0
-    if (isFirstPage) setError(false)
-    else setLoadingMore(true)
+    if (isFirstPage) {
+      setError(false)
+      setSearching(true)
+    } else {
+      setLoadingMore(true)
+    }
 
     fetch(`/api/foods/search?q=${encodeURIComponent(q)}&offset=${offset}`)
       .then((res) => {
@@ -101,7 +107,10 @@ export function FoodSearch({
         setError(true)
       })
       .finally(() => {
-        if (requestId === requestIdRef.current) setLoadingMore(false)
+        if (requestId === requestIdRef.current) {
+          setLoadingMore(false)
+          setSearching(false)
+        }
       })
   }, [])
 
@@ -110,12 +119,19 @@ export function FoodSearch({
       // Invalidate any in-flight request so a stale response can't repopulate
       // `results` after the user clears the box. `visibleResults` below
       // already hides `results` while the query is empty, so there's no
-      // need to also clear that state here.
+      // need to also clear that state here. Not resetting `searching` here
+      // is deliberate too - the skeleton's render condition below also
+      // requires query.trim().length > 0, so a stale `searching=true` from
+      // right before the box was cleared has no visible effect; avoids a
+      // setState-in-effect on every keystroke down to empty.
       requestIdRef.current++
       return
     }
 
-    const timeout = setTimeout(() => runSearch(query.trim(), 0), 300)
+    const timeout = setTimeout(() => {
+      setSearching(true)
+      runSearch(query.trim(), 0)
+    }, 300)
     return () => clearTimeout(timeout)
   }, [query, runSearch])
 
@@ -159,35 +175,56 @@ export function FoodSearch({
         </p>
       )}
 
-      <ul className="flex flex-col gap-2">
-        {visibleResults.map((food) => (
-          <li key={food.id}>
-            <Link
-              href={`/log?foodId=${food.id}${contextQuery(context)}`}
-              className="flex items-center gap-3 rounded-card border border-hairline bg-card px-3 py-2.5 shadow-card transition-colors hover:bg-card-alt"
+      {searching && query.trim().length > 0 ? (
+        <ul className="flex flex-col gap-2">
+          {Array.from({ length: 6 }, (_, i) => (
+            <li
+              key={i}
+              className="animate-fade-in-up flex items-center gap-3 rounded-card border border-hairline bg-card px-3 py-2.5 shadow-card"
+              style={{ animationDelay: `${i * 40}ms` }}
             >
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-text">
-                  {food.name}
-                </p>
-                {food.brand && (
-                  <p className="truncate text-xs text-text-muted">
-                    {food.brand}
+                <Skeleton className="h-4 w-[65%]" />
+                <Skeleton className="mt-1.5 h-3 w-[35%]" />
+              </div>
+              <div className="shrink-0">
+                <Skeleton className="h-4 w-8" />
+                <Skeleton className="mt-1.5 h-2.5 w-6" />
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {visibleResults.map((food) => (
+            <li key={food.id}>
+              <Link
+                href={`/log?foodId=${food.id}${contextQuery(context)}`}
+                className="flex items-center gap-3 rounded-card border border-hairline bg-card px-3 py-2.5 shadow-card transition-colors hover:bg-card-alt"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-text">
+                    {food.name}
                   </p>
-                )}
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="font-mono text-sm text-text">
-                  {Math.round(food.caloriesPer100g)}
-                </p>
-                <p className="font-mono text-[9px] text-text-faint">
-                  {sourceLabel[food.source]}
-                </p>
-              </div>
-            </Link>
-          </li>
-        ))}
-      </ul>
+                  {food.brand && (
+                    <p className="truncate text-xs text-text-muted">
+                      {food.brand}
+                    </p>
+                  )}
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-mono text-sm text-text">
+                    {Math.round(food.caloriesPer100g)}
+                  </p>
+                  <p className="font-mono text-[9px] text-text-faint">
+                    {sourceLabel[food.source]}
+                  </p>
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {nextOffset !== null && query.trim().length > 0 && (
         <button
