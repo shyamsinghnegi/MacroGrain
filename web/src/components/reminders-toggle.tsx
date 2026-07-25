@@ -13,6 +13,32 @@ function readPermission(): PermissionState {
   return Notification.permission
 }
 
+// iOS Safari has Notification and serviceWorker available even in a plain
+// browser tab, but PushManager.subscribe() is only reachable once the site
+// has been added to the Home Screen and is running in that installed
+// ("standalone") context - confirmed against Apple's own WebKit release
+// notes (Safari 16.4+). A plain Safari tab will otherwise fail the
+// subscribe call with a confusing error, or on older iOS just do nothing,
+// so this needs its own detection ahead of the normal permission flow
+// rather than falling through to "unsupported" (Notification does exist,
+// so readPermission() alone can't tell these two cases apart).
+function needsIosInstall(): boolean {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false
+
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !("MSStream" in window)
+  if (!isIos) return false
+
+  // Standalone mode = launched from a Home Screen icon, not a Safari tab.
+  // iOS Safari doesn't support the standard `display-mode` media query
+  // reliably in all versions, so also check the older non-standard
+  // navigator.standalone flag Apple has supported since early iOS.
+  const isStandalone =
+    window.matchMedia?.("(display-mode: standalone)").matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true
+
+  return !isStandalone
+}
+
 // Wraps the plain server-action toggle with the real Web Push subscribe
 // flow, plus live browser permission status - the DB's remindersEnabled
 // flag only controls whether the server *tries* to push; if the browser
@@ -25,6 +51,7 @@ function readPermission(): PermissionState {
 // external subscription.
 export function RemindersToggle({ enabled }: { enabled: boolean }) {
   const [permission, setPermission] = useState<PermissionState>(readPermission)
+  const [iosNeedsInstall] = useState(needsIosInstall)
   const [subscribing, setSubscribing] = useState(false)
   const [subscribeError, setSubscribeError] = useState<string | null>(null)
 
@@ -79,7 +106,15 @@ export function RemindersToggle({ enabled }: { enabled: boolean }) {
         even if the app is closed, once notifications are allowed below.
       </p>
 
-      {enabled && permission === "denied" && (
+      {enabled && iosNeedsInstall && (
+        <p className="text-xs text-warning">
+          On iPhone, push notifications only work after adding Macrograin to
+          your Home Screen: tap Share, then &quot;Add to Home Screen,&quot; then
+          open it from there and try this again.
+        </p>
+      )}
+
+      {enabled && !iosNeedsInstall && permission === "denied" && (
         <p className="text-xs text-warning">
           Browser notifications are blocked, so this won&apos;t actually notify
           you. Allow notifications for this site in your browser settings to
@@ -87,13 +122,13 @@ export function RemindersToggle({ enabled }: { enabled: boolean }) {
         </p>
       )}
 
-      {enabled && permission === "unsupported" && (
+      {enabled && !iosNeedsInstall && permission === "unsupported" && (
         <p className="text-xs text-warning">
           This browser doesn&apos;t support notifications.
         </p>
       )}
 
-      {enabled && permission === "default" && (
+      {enabled && !iosNeedsInstall && permission === "default" && (
         <button
           type="button"
           onClick={enablePush}
