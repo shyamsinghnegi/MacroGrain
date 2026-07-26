@@ -49,7 +49,14 @@ export async function GET(request: NextRequest) {
       sodiumPer100g: result.sodiumPer100g,
       source: "off",
     })
+    .onConflictDoNothing({ target: foods.barcode })
     .returning()
 
-  return Response.json(food)
+  // A concurrent request for the same barcode won the race and inserted
+  // first - onConflictDoNothing() means `food` is undefined here, not an
+  // error, so fetch the row it just created instead of failing the request.
+  if (food) return Response.json(food)
+
+  const winner = await db.query.foods.findFirst({ where: eq(foods.barcode, barcode) })
+  return Response.json(winner)
 }

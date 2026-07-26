@@ -232,14 +232,20 @@ export function ScanClient() {
 
       const endpoint = kind === "photo" ? "/api/scan/photo" : "/api/scan/label"
       const res = await fetch(endpoint, { method: "POST", body: formData })
-      const data = await res.json()
 
       if (!res.ok) {
+        let message = res.status === 413 ? "Photo is too large. Try a smaller image." : "Could not analyze photo. Try again."
+        if (res.headers.get("content-type")?.includes("application/json")) {
+          const data = await res.json().catch(() => null)
+          message = data?.message ?? message
+        }
         setState("camera_error")
-        setErrorMessage(data?.message ?? "Could not analyze photo. Try again.")
+        setErrorMessage(message)
         clearCapturingOverlay()
         return
       }
+
+      const data = await res.json()
 
       controlsRef.current?.stop()
       streamRef.current?.getTracks().forEach((t) => t.stop())
@@ -289,11 +295,31 @@ export function ScanClient() {
     fileInputRef.current?.click()
   }
 
-  function onGalleryFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
+  const MAX_UPLOAD_DIMENSION = 2000
+
+  async function downscaleImage(file: Blob): Promise<Blob> {
+    const bitmap = await createImageBitmap(file)
+    const scale = Math.min(1, MAX_UPLOAD_DIMENSION / Math.max(bitmap.width, bitmap.height))
+    const canvas = canvasRef.current
+    if (!canvas) return file
+
+    canvas.width = Math.round(bitmap.width * scale)
+    canvas.height = Math.round(bitmap.height * scale)
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return file
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    bitmap.close()
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85))
+    return blob ?? file
+  }
+
+  async function onGalleryFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     e.target.value = "" // allow re-picking the same file later
     if (!file || capturing) return
-    analyzePhoto(galleryKindRef.current, file)
+    const resized = await downscaleImage(file).catch(() => file)
+    analyzePhoto(galleryKindRef.current, resized)
   }
 
   return (

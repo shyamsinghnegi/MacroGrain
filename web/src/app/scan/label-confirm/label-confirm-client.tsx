@@ -83,6 +83,8 @@ function ConfirmForm({ result }: { result: NutritionLabelResult }) {
     { key: "sodium", unit: "mg" },
   ]
 
+  const hasEmptyRequiredField = rows.some((row) => row.required && values[row.key] === "")
+
   return (
     <div className="mx-auto flex w-full flex-col px-4 sm:px-6 pt-16 pb-28 sm:max-w-xl">
       <div className="mb-4.5 flex items-center justify-between">
@@ -184,8 +186,17 @@ function ConfirmForm({ result }: { result: NutritionLabelResult }) {
 
         <div className="flex-1" />
 
-        <Button type="submit" variant="accent" disabled={pending} className="mt-4 py-4">
-          {pending ? "Saving…" : "Confirm & add"}
+        <Button
+          type="submit"
+          variant="accent"
+          disabled={pending || hasEmptyRequiredField}
+          className="mt-4 py-4"
+        >
+          {pending
+            ? "Saving…"
+            : hasEmptyRequiredField
+              ? "Fill in required fields"
+              : "Confirm & add"}
         </Button>
       </form>
     </div>
