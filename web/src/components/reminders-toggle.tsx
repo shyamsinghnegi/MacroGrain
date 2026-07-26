@@ -5,20 +5,9 @@ import { toggleReminders } from "@/app/settings/actions"
 import { subscribeToPush, unsubscribeFromPush } from "@/lib/push-subscribe"
 
 type PermissionState = "unsupported" | "default" | "granted" | "denied"
-// Whether the browser has an actual, live PushSubscription object right now
-// - "unknown" until checked (requires an async serviceWorker.getRegistration
-// call, can't be read synchronously like Notification.permission).
-// Notification.permission === "granted" is NOT the same thing as being
-// subscribed: permission is a one-time OS-level grant that persists forever
-// once given, while the subscription itself is a separate step
-// (pushManager.subscribe()) that can fail (e.g. a misconfigured VAPID key)
-// independently and silently, with no way to tell from permission state
-// alone. Confirmed as a real bug: a first subscribeToPush() attempt threw
-// (stale NEXT_PUBLIC_VAPID_PUBLIC_KEY not yet in the deployed build),
-// permission was already "granted" from that same attempt's prompt, and
-// every visit after that showed no error and no retry button - the
-// permission-only check had no way to notice the subscription never
-// actually got created server-side.
+// Notification.permission granted != actually subscribed - subscribe can
+// fail independently after permission is already granted, so both need
+// tracking separately.
 type SubStatus = "unknown" | "subscribed" | "not-subscribed"
 
 function readPermission(): PermissionState {
@@ -35,25 +24,14 @@ async function checkSubscribed(): Promise<boolean> {
   return Boolean(subscription)
 }
 
-// iOS Safari has Notification and serviceWorker available even in a plain
-// browser tab, but PushManager.subscribe() is only reachable once the site
-// has been added to the Home Screen and is running in that installed
-// ("standalone") context - confirmed against Apple's own WebKit release
-// notes (Safari 16.4+). A plain Safari tab will otherwise fail the
-// subscribe call with a confusing error, or on older iOS just do nothing,
-// so this needs its own detection ahead of the normal permission flow
-// rather than falling through to "unsupported" (Notification does exist,
-// so readPermission() alone can't tell these two cases apart).
+// iOS Safari only exposes PushManager.subscribe() once added to the Home
+// Screen (standalone mode) - Safari 16.4+.
 function needsIosInstall(): boolean {
   if (typeof window === "undefined" || typeof navigator === "undefined") return false
 
   const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !("MSStream" in window)
   if (!isIos) return false
 
-  // Standalone mode = launched from a Home Screen icon, not a Safari tab.
-  // iOS Safari doesn't support the standard `display-mode` media query
-  // reliably in all versions, so also check the older non-standard
-  // navigator.standalone flag Apple has supported since early iOS.
   const isStandalone =
     window.matchMedia?.("(display-mode: standalone)").matches ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true
@@ -61,16 +39,6 @@ function needsIosInstall(): boolean {
   return !isStandalone
 }
 
-// Wraps the plain server-action toggle with the real Web Push subscribe
-// flow, plus live browser permission status - the DB's remindersEnabled
-// flag only controls whether the server *tries* to push; if the browser
-// permission was denied, the device doesn't support push, or the browser
-// was never actually subscribed (a separate step from permission alone),
-// the toggle can read "on" while nothing will ever fire, silently.
-// Surfacing that here so it's not a mystery why reminders "don't work."
-// Permission read via a lazy useState initializer, not an effect -
-// Notification.permission is synchronously available, not an async
-// external subscription.
 export function RemindersToggle({ enabled }: { enabled: boolean }) {
   const [permission, setPermission] = useState<PermissionState>(readPermission)
   const [iosNeedsInstall] = useState(needsIosInstall)
@@ -102,10 +70,6 @@ export function RemindersToggle({ enabled }: { enabled: boolean }) {
       <form
         action={async (formData) => {
           const nextEnabled = formData.get("enabled") === "true"
-          // Unsubscribing this browser when turning reminders off - not
-          // strictly required (the cron route only pushes to
-          // remindersEnabled users anyway), but avoids leaving a stale
-          // subscription row + an orphaned SW push registration around.
           if (!nextEnabled) {
             await unsubscribeFromPush().catch(() => {})
           }

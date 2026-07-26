@@ -8,6 +8,13 @@ import { SegmentedControl } from "@/components/segmented-control"
 import { SelectableList } from "@/components/selectable-list"
 import { StepProgress } from "@/components/step-progress"
 import Link from "next/link"
+import {
+  cmToFtIn,
+  ftInToCm,
+  kgToLb,
+  lbToKg,
+  type UnitSystem,
+} from "@/lib/units"
 
 // Standard Harris-Benedict/Mifflin activity multipliers — displayed now,
 // used for real TDEE math in Phase 6.
@@ -30,11 +37,6 @@ const goals = [
   { value: "bulk", label: "Bulk" },
 ] as const
 
-// "How aggressive" - only meaningful for cut/bulk (maintain always resolves
-// to 0 kg/week, see lib/tdee.ts's paceToRate), but always collected here so
-// goalRate/currentTargetKcal are never left null after signup - previously
-// this question didn't exist at all during onboarding, only reachable later
-// via the standalone /goal screen most users never found.
 const paces = [
   { value: "slow", label: "Slow", meta: "gentle" },
   { value: "steady", label: "Steady", meta: "recommended" },
@@ -69,6 +71,8 @@ function StatInput({
   step?: string
   defaultValue?: string | number
 }) {
+  const inputMode = type === "number" && step && step !== "1" ? "decimal" : undefined
+
   return (
     <div className="flex-1 rounded-input border border-hairline bg-card px-4 py-3 shadow-inset-input">
       <label htmlFor={id} className="block text-xs text-text-muted">
@@ -80,6 +84,7 @@ function StatInput({
           name={name}
           type={type}
           step={step}
+          inputMode={inputMode}
           defaultValue={defaultValue}
           className="w-full min-w-0 bg-transparent font-mono text-xl text-text outline-none"
         />
@@ -89,12 +94,122 @@ function StatInput({
   )
 }
 
+function HeightInput({
+  unitSystem,
+  defaultValueCm,
+}: {
+  unitSystem: UnitSystem
+  defaultValueCm?: number
+}) {
+  const initial = defaultValueCm ? cmToFtIn(defaultValueCm) : null
+  const [ft, setFt] = useState(initial ? String(initial.ft) : "")
+  const [inches, setInches] = useState(initial ? String(initial.in) : "")
+  const [cm, setCm] = useState(defaultValueCm ? String(defaultValueCm) : "")
+
+  if (unitSystem === "imperial") {
+    const cmValue = ft !== "" && inches !== "" ? ftInToCm(Number(ft), Number(inches)) : ""
+    return (
+      <div className="flex-1 rounded-input border border-hairline bg-card px-4 py-3 shadow-inset-input">
+        <label className="block text-xs text-text-muted">Height</label>
+        <div className="mt-1.5 flex items-baseline gap-1.5">
+          <input
+            type="number"
+            inputMode="numeric"
+            step="1"
+            min={0}
+            placeholder="ft"
+            value={ft}
+            onChange={(e) => setFt(e.target.value)}
+            className="w-10 min-w-0 bg-transparent font-mono text-xl text-text outline-none"
+          />
+          <span className="text-sm text-text-faint">ft</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            step="1"
+            min={0}
+            max={11}
+            placeholder="in"
+            value={inches}
+            onChange={(e) => setInches(e.target.value)}
+            className="w-10 min-w-0 bg-transparent font-mono text-xl text-text outline-none"
+          />
+          <span className="text-sm text-text-faint">in</span>
+        </div>
+        <input type="hidden" name="heightCm" value={cmValue} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex-1 rounded-input border border-hairline bg-card px-4 py-3 shadow-inset-input">
+      <label htmlFor="heightCm" className="block text-xs text-text-muted">
+        Height
+      </label>
+      <div className="mt-1.5 flex items-baseline gap-1.5">
+        <input
+          id="heightCm"
+          name="heightCm"
+          type="number"
+          inputMode="decimal"
+          step="0.1"
+          value={cm}
+          onChange={(e) => setCm(e.target.value)}
+          className="w-full min-w-0 bg-transparent font-mono text-xl text-text outline-none"
+        />
+        <span className="text-sm text-text-faint">cm</span>
+      </div>
+    </div>
+  )
+}
+
+function WeightInput({
+  unitSystem,
+  defaultValueKg,
+}: {
+  unitSystem: UnitSystem
+  defaultValueKg?: number
+}) {
+  const initial =
+    defaultValueKg == null
+      ? ""
+      : unitSystem === "imperial"
+        ? String(Math.round(kgToLb(defaultValueKg) * 10) / 10)
+        : String(defaultValueKg)
+  const [value, setValue] = useState(initial)
+  const unitLabel = unitSystem === "imperial" ? "lb" : "kg"
+  const kgValue = value === "" ? "" : unitSystem === "imperial" ? lbToKg(Number(value)) : Number(value)
+
+  return (
+    <div className="flex-1 rounded-input border border-hairline bg-card px-4 py-3 shadow-inset-input">
+      <label htmlFor="weightKgInput" className="block text-xs text-text-muted">
+        Weight
+      </label>
+      <div className="mt-1.5 flex items-baseline gap-1.5">
+        <input
+          id="weightKgInput"
+          type="number"
+          inputMode="decimal"
+          step="0.1"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          className="w-full min-w-0 bg-transparent font-mono text-xl text-text outline-none"
+        />
+        <span className="text-sm text-text-faint">{unitLabel}</span>
+      </div>
+      <input type="hidden" name="weightKg" value={kgValue} />
+    </div>
+  )
+}
+
 export function ProfileForm({
   profile,
   weightKg,
+  unitSystem,
 }: {
   profile: Profile | undefined
   weightKg: number | undefined
+  unitSystem: UnitSystem
 }) {
   const [state, formAction, pending] = useActionState(saveProfile, undefined)
   const [selectedGoal, setSelectedGoal] = useState<(typeof goals)[number]["value"]>(
@@ -120,21 +235,8 @@ export function ProfileForm({
 
       <div>
         <div className="flex gap-3">
-          <StatInput
-            id="heightCm"
-            name="heightCm"
-            label="Height"
-            unit="cm"
-            defaultValue={profile?.heightCm ?? undefined}
-          />
-          <StatInput
-            id="weightKg"
-            name="weightKg"
-            label="Weight"
-            unit="kg"
-            step="0.1"
-            defaultValue={weightKg ?? undefined}
-          />
+          <HeightInput unitSystem={unitSystem} defaultValueCm={profile?.heightCm ?? undefined} />
+          <WeightInput unitSystem={unitSystem} defaultValueKg={weightKg ?? undefined} />
         </div>
         <FieldError message={state?.errors?.heightCm?.[0] ?? state?.errors?.weightKg?.[0]} />
       </div>

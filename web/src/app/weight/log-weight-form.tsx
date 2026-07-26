@@ -4,14 +4,18 @@ import { useActionState, useState } from "react"
 import { logWeight } from "./actions"
 import { Input, FieldError } from "@/components/input"
 import { Button } from "@/components/button"
+import { parseWeightToKg, type UnitSystem } from "@/lib/units"
 
 export function LogWeightForm({
   emptyState,
+  unitSystem = "metric",
 }: {
   emptyState?: { headline: string; description: string; ctaLabel: string }
+  unitSystem?: UnitSystem
 }) {
   const [state, formAction, pending] = useActionState(logWeight, undefined)
   const [open, setOpen] = useState(false)
+  const [inputValue, setInputValue] = useState("")
 
   if (!open) {
     if (emptyState) {
@@ -43,15 +47,21 @@ export function LogWeightForm({
     )
   }
 
+  const unitLabel = unitSystem === "imperial" ? "lb" : "kg"
+  const kgValue = inputValue === "" ? "" : parseWeightToKg(Number(inputValue), unitSystem)
+
   return (
     <form action={formAction} className="flex flex-col gap-3">
       <Input
-        name="weightKg"
         type="number"
+        inputMode="decimal"
         step="0.1"
-        placeholder="Weight (kg)"
+        placeholder={`Weight (${unitLabel})`}
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
         autoFocus
       />
+      <input type="hidden" name="weightKg" value={kgValue} />
       <FieldError message={state?.errors?.weightKg?.[0]} />
       <Button type="submit" variant="accent" disabled={pending}>
         {pending ? "Saving..." : "Save"}

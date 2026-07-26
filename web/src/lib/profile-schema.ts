@@ -9,11 +9,6 @@ export const ProfileSchema = z.object({
   birthDate: z.string().date("Enter a valid date"),
   activityLevel: z.enum(activityLevel),
   goal: z.enum(goal),
-  // Only meaningful for cut/bulk (maintain always resolves to 0 kg/week
-  // regardless - see lib/tdee.ts's paceToRate) but always required here so
-  // profile setup always leaves goalRate populated, rather than the
-  // previous behavior of leaving it null until the user separately found
-  // the standalone /goal screen after onboarding.
   pace: z.enum(pace),
 })
 

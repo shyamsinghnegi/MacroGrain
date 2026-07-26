@@ -38,11 +38,6 @@ export async function saveProfile(
   const tz = await getTimezone()
   const today = toDateParam(new Date(), tz)
 
-  // Resolve the chosen pace to an actual kg/week rate and compute the
-  // initial target right away, same as goal/actions.ts does for a later
-  // goal change - so a brand new profile never sits with goalRate/
-  // currentTargetKcal left null, which previously only got populated the
-  // first time someone separately visited the standalone /goal screen.
   const rateKgPerWeek = paceToRate(goal, pace)
   const goalRate = Math.round(rateKgPerWeek * 100)
   const currentTargetKcal = initialTarget(

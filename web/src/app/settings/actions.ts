@@ -2,9 +2,10 @@
 
 import { auth } from "@/auth"
 import { db } from "@/db"
-import { profiles, pushSubscriptions } from "@/db/schema"
-import { eq } from "drizzle-orm"
+import { profiles, pushSubscriptions, unitSystem } from "@/db/schema"
+import { and, eq } from "drizzle-orm"
 import { redirect } from "next/navigation"
+import { setUnitSystemCookie } from "@/lib/unit-preference"
 
 export async function toggleReminders(formData: FormData) {
   const session = await auth()
@@ -16,6 +17,23 @@ export async function toggleReminders(formData: FormData) {
     .update(profiles)
     .set({ remindersEnabled: enabled, updatedAt: new Date() })
     .where(eq(profiles.userId, session.user.id))
+
+  redirect("/settings")
+}
+
+export async function toggleUnitSystem(formData: FormData) {
+  const session = await auth()
+  if (!session?.user?.id) redirect("/")
+
+  const next = formData.get("unitSystem")
+  if (next !== "metric" && next !== "imperial") redirect("/settings")
+
+  await db
+    .update(profiles)
+    .set({ unitSystem: next satisfies (typeof unitSystem)[number], updatedAt: new Date() })
+    .where(eq(profiles.userId, session.user.id))
+
+  await setUnitSystemCookie(next)
 
   redirect("/settings")
 }
@@ -56,5 +74,5 @@ export async function removePushSubscription(endpoint: string) {
 
   await db
     .delete(pushSubscriptions)
-    .where(eq(pushSubscriptions.endpoint, endpoint))
+    .where(and(eq(pushSubscriptions.endpoint, endpoint), eq(pushSubscriptions.userId, session.user.id)))
 }

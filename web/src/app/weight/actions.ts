@@ -6,6 +6,8 @@ import { weightLogs } from "@/db/schema"
 import { redirect } from "next/navigation"
 import { toDateParam } from "@/lib/dates"
 import { getTimezone } from "@/lib/timezone"
+import { getUnitSystem } from "@/lib/unit-preference"
+import { formatWeight } from "@/lib/units"
 import { z } from "zod"
 
 const LogWeightSchema = z.object({
@@ -47,6 +49,7 @@ export async function logWeight(
       set: { weightKg: validated.data.weightKg },
     })
 
-  const toast = encodeURIComponent(`Weight saved · ${validated.data.weightKg} kg`)
+  const unitSystem = await getUnitSystem()
+  const toast = encodeURIComponent(`Weight saved · ${formatWeight(validated.data.weightKg, unitSystem)}`)
   redirect(`/weight?toast=${toast}`)
 }

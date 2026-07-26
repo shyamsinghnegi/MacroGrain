@@ -28,7 +28,7 @@ export function WaterWidget({
   function logCustomAmount() {
     const amount = Number(customAmount)
     if (!Number.isFinite(amount) || amount <= 0) return
-    logAmount(Math.round(amount))
+    logAmount(amount)
     setCustomAmount("")
     setShowCustom(false)
   }
@@ -62,7 +62,8 @@ export function WaterWidget({
         <div className="mt-3 flex gap-2">
           <input
             type="number"
-            inputMode="numeric"
+            inputMode="decimal"
+            step="0.1"
             min={1}
             max={5000}
             autoFocus

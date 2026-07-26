@@ -13,7 +13,7 @@ const SaveGoalSchema = z.object({
   // kg/week x 100 (matches profiles.goalRate's storage convention) - the
   // rate the user landed on with the slider, which may differ from the
   // goal's own default pace.
-  goalRate: z.coerce.number().int(),
+  goalRate: z.coerce.number().int().min(-200).max(200),
 })
 
 export type SaveGoalFormState = { errors?: { goal?: string[] } } | undefined

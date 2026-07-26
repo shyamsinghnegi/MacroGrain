@@ -87,11 +87,6 @@ export default async function RootLayout({
   // user had picked "Light" before switching to a palette.
   const effectiveTheme = themePreset === "none" ? theme : "dark";
 
-  // Nav is only meaningful once there's an actual app to navigate around in
-  // - a signed-in user still mid-setup (/profile/edit) would see tabs for
-  // Home/Log/Weight/Settings that immediately redirect back to setup, which
-  // is confusing, not useful. Cookie-only check (see lib/onboarding.ts) -
-  // no DB query on every navigation, same pattern as timezone/theme.
   const onboarded = await hasCompletedOnboarding();
 
   return (
