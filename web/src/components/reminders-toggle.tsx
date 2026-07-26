@@ -1,16 +1,38 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { toggleReminders } from "@/app/settings/actions"
 import { subscribeToPush, unsubscribeFromPush } from "@/lib/push-subscribe"
 
 type PermissionState = "unsupported" | "default" | "granted" | "denied"
+// Whether the browser has an actual, live PushSubscription object right now
+// - "unknown" until checked (requires an async serviceWorker.getRegistration
+// call, can't be read synchronously like Notification.permission).
+// Notification.permission === "granted" is NOT the same thing as being
+// subscribed: permission is a one-time OS-level grant that persists forever
+// once given, while the subscription itself is a separate step
+// (pushManager.subscribe()) that can fail (e.g. a misconfigured VAPID key)
+// independently and silently, with no way to tell from permission state
+// alone. Confirmed as a real bug: a first subscribeToPush() attempt threw
+// (stale NEXT_PUBLIC_VAPID_PUBLIC_KEY not yet in the deployed build),
+// permission was already "granted" from that same attempt's prompt, and
+// every visit after that showed no error and no retry button - the
+// permission-only check had no way to notice the subscription never
+// actually got created server-side.
+type SubStatus = "unknown" | "subscribed" | "not-subscribed"
 
 function readPermission(): PermissionState {
   if (typeof window === "undefined" || typeof Notification === "undefined") {
     return "unsupported"
   }
   return Notification.permission
+}
+
+async function checkSubscribed(): Promise<boolean> {
+  if (typeof window === "undefined" || !("serviceWorker" in navigator)) return false
+  const registration = await navigator.serviceWorker.getRegistration("/sw.js")
+  const subscription = await registration?.pushManager.getSubscription()
+  return Boolean(subscription)
 }
 
 // iOS Safari has Notification and serviceWorker available even in a plain
@@ -52,8 +74,13 @@ function needsIosInstall(): boolean {
 export function RemindersToggle({ enabled }: { enabled: boolean }) {
   const [permission, setPermission] = useState<PermissionState>(readPermission)
   const [iosNeedsInstall] = useState(needsIosInstall)
+  const [subStatus, setSubStatus] = useState<SubStatus>("unknown")
   const [subscribing, setSubscribing] = useState(false)
   const [subscribeError, setSubscribeError] = useState<string | null>(null)
+
+  useEffect(() => {
+    checkSubscribed().then((subscribed) => setSubStatus(subscribed ? "subscribed" : "not-subscribed"))
+  }, [])
 
   async function enablePush() {
     setSubscribing(true)
@@ -61,8 +88,10 @@ export function RemindersToggle({ enabled }: { enabled: boolean }) {
     try {
       await subscribeToPush()
       setPermission(readPermission())
+      setSubStatus("subscribed")
     } catch (e) {
       setSubscribeError(e instanceof Error ? e.message : "Could not enable notifications.")
+      setSubStatus("not-subscribed")
     } finally {
       setSubscribing(false)
     }
@@ -128,18 +157,26 @@ export function RemindersToggle({ enabled }: { enabled: boolean }) {
         </p>
       )}
 
-      {enabled && !iosNeedsInstall && permission === "default" && (
-        <button
-          type="button"
-          onClick={enablePush}
-          disabled={subscribing}
-          className="w-fit text-xs text-accent underline disabled:opacity-50"
-        >
-          {subscribing ? "Enabling…" : "Allow notifications"}
-        </button>
-      )}
+      {enabled &&
+        !iosNeedsInstall &&
+        permission !== "denied" &&
+        permission !== "unsupported" &&
+        subStatus === "not-subscribed" && (
+          <button
+            type="button"
+            onClick={enablePush}
+            disabled={subscribing}
+            className="w-fit text-xs text-accent underline disabled:opacity-50"
+          >
+            {subscribing
+              ? "Enabling…"
+              : permission === "granted"
+                ? "Finish enabling notifications"
+                : "Allow notifications"}
+          </button>
+        )}
 
-      {enabled && permission === "granted" && subscribeError && (
+      {enabled && subscribeError && (
         <p className="text-xs text-warning">{subscribeError}</p>
       )}
     </div>
