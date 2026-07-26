@@ -47,3 +47,28 @@ export function dailyExtendedLimits(calorieTarget: number) {
     saturatedFatG: Math.round((calorieTarget * 0.1) / 9),
   }
 }
+
+// Daily protein/carbs/fat gram targets from a calorie target + body weight.
+// Protein: 1.6g/kg (evidence-based range for muscle retention while
+// cutting/general tracking, per ISSN position stand) rather than a percent-
+// of-calories split, since protein needs scale with body weight, not with
+// how many calories someone happens to eat. Fat: 25% of calories (within
+// the widely-used 20-35% range) at 9 kcal/g. Carbs: whatever calories are
+// left after protein+fat, at 4 kcal/g - never negative, since a very low
+// calorie target with a heavy body weight could otherwise push carbs
+// negative (falls back to a 5g floor in that edge case rather than showing
+// a nonsensical target).
+const PROTEIN_G_PER_KG = 1.6
+const FAT_CALORIE_SHARE = 0.25
+const KCAL_PER_G_PROTEIN = 4
+const KCAL_PER_G_FAT = 9
+const KCAL_PER_G_CARBS = 4
+
+export function dailyMacroTargets(calorieTarget: number, weightKg: number) {
+  const proteinG = Math.round(PROTEIN_G_PER_KG * weightKg)
+  const fatG = Math.round((calorieTarget * FAT_CALORIE_SHARE) / KCAL_PER_G_FAT)
+  const proteinAndFatKcal = proteinG * KCAL_PER_G_PROTEIN + fatG * KCAL_PER_G_FAT
+  const carbsG = Math.max(5, Math.round((calorieTarget - proteinAndFatKcal) / KCAL_PER_G_CARBS))
+
+  return { proteinG, carbsG, fatG }
+}

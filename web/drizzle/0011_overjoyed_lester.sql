@@ -1,0 +1,1 @@
+ALTER TABLE `profile` ADD `unitSystem` text DEFAULT 'metric' NOT NULL;

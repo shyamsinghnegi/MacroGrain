@@ -1,11 +1,13 @@
 import { auth } from "@/auth"
 import { db } from "@/db"
-import { weightLogs } from "@/db/schema"
+import { profiles, weightLogs } from "@/db/schema"
 import { asc, eq } from "drizzle-orm"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { WeightChart } from "@/components/weight-chart"
 import { LogWeightForm } from "./log-weight-form"
+import { getUnitSystem } from "@/lib/unit-preference"
+import { formatWeight, displayWeight } from "@/lib/units"
 
 const ranges = { "1M": 30, "3M": 90, "6M": 180, ALL: Infinity } as const
 type Range = keyof typeof ranges
@@ -23,10 +25,14 @@ export default async function WeightPage({
   const { range: rangeParam } = await searchParams
   const range: Range = rangeParam && rangeParam in ranges ? (rangeParam as Range) : "1M"
 
-  const allEntries = await db.query.weightLogs.findMany({
-    where: eq(weightLogs.userId, session.user.id),
-    orderBy: asc(weightLogs.date),
-  })
+  const [allEntries, profile] = await Promise.all([
+    db.query.weightLogs.findMany({
+      where: eq(weightLogs.userId, session.user.id),
+      orderBy: asc(weightLogs.date),
+    }),
+    db.query.profiles.findFirst({ where: eq(profiles.userId, session.user.id) }),
+  ])
+  const unitSystem = await getUnitSystem(profile?.unitSystem)
 
   // react-hooks/purity flags Date.now() as an impure call during render,
   // a rule aimed at client re-render consistency. This is an async Server
@@ -57,6 +63,7 @@ export default async function WeightPage({
       <div className="mx-auto flex w-full flex-col gap-6 px-4 sm:px-6 pt-16 pb-28 sm:max-w-xl">
         <h1 className="text-2xl font-semibold text-text">Weight</h1>
         <LogWeightForm
+          unitSystem={unitSystem}
           emptyState={{
             headline: "No weight logged",
             description:
@@ -78,8 +85,16 @@ export default async function WeightPage({
             Current
           </p>
           <p className="font-doto text-4xl font-black text-text">
-            {latest ? latest.weightKg : "—"}
-            <span className="ml-1 font-sans text-base font-normal text-text-muted">kg</span>
+            {latest ? (
+              <>
+                {displayWeight(latest.weightKg, unitSystem).value}
+                <span className="ml-1 font-sans text-base font-normal text-text-muted">
+                  {displayWeight(latest.weightKg, unitSystem).unit}
+                </span>
+              </>
+            ) : (
+              "—"
+            )}
           </p>
         </div>
         {delta !== null && (
@@ -88,7 +103,7 @@ export default async function WeightPage({
               className={`font-mono text-sm ${delta <= 0 ? "text-accent" : "text-warning"}`}
             >
               {delta > 0 ? "+" : ""}
-              {delta.toFixed(1)} kg
+              {formatWeight(delta, unitSystem)}
             </p>
             <p className="font-mono text-xs text-text-muted">30 days</p>
           </div>
@@ -129,12 +144,12 @@ export default async function WeightPage({
                 timeZone: "UTC",
               })}
             </p>
-            <p className="font-mono text-sm text-text">{entry.weightKg} kg</p>
+            <p className="font-mono text-sm text-text">{formatWeight(entry.weightKg, unitSystem)}</p>
           </div>
         ))}
       </div>
 
-      <LogWeightForm />
+      <LogWeightForm unitSystem={unitSystem} />
     </div>
   )
 }

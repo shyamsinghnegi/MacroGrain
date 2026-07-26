@@ -7,6 +7,7 @@ import Link from "next/link"
 import { ChevronRight, Droplet, Palette } from "lucide-react"
 import { ToastFromParam } from "@/components/toast"
 import { RemindersToggle } from "@/components/reminders-toggle"
+import { UnitToggle } from "@/components/unit-toggle"
 
 // Settings — see design_handoff_macrograin/weekly+goals+accountandsettings.png
 // screen 15 "Account & settings": profile row, DATA SOURCES section with
@@ -109,10 +110,7 @@ export default async function SettingsPage() {
             </span>
           </Link>
 
-          <div className="flex items-center justify-between px-4 py-3.5">
-            <span className="text-sm text-text">Units</span>
-            <span className="font-mono text-xs text-text-muted">metric · kg</span>
-          </div>
+          <UnitToggle unitSystem={profile.unitSystem} />
 
           <Link
             href="/settings/appearance"

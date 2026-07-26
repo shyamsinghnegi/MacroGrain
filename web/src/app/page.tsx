@@ -4,7 +4,7 @@ import { foodLogs, profiles, weightLogs } from "@/db/schema"
 import { and, eq, gte, lt, sum, desc } from "drizzle-orm"
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { resolveTarget } from "@/lib/targets"
+import { resolveTarget, dailyMacroTargets } from "@/lib/targets"
 import { dayBounds, toDateParam } from "@/lib/dates"
 import { buttonClass } from "@/components/button"
 import { SegBar } from "@/components/seg-bar"
@@ -114,10 +114,12 @@ export default async function Home({
     Math.min(1, consumed.calories / target) * 26
   )
 
+  const macroTargets = dailyMacroTargets(target, latestWeight?.weightKg ?? 70)
+
   const macros = [
-    { label: "PROTEIN", value: consumed.protein, color: "var(--color-protein)" },
-    { label: "CARBS", value: consumed.carbs, color: "var(--color-carbs)" },
-    { label: "FAT", value: consumed.fat, color: "var(--color-fat)" },
+    { label: "PROTEIN", value: consumed.protein, limit: macroTargets.proteinG, color: "var(--color-protein)" },
+    { label: "CARBS", value: consumed.carbs, limit: macroTargets.carbsG, color: "var(--color-carbs)" },
+    { label: "FAT", value: consumed.fat, limit: macroTargets.fatG, color: "var(--color-fat)" },
   ]
 
   const todayLabel = new Date()
@@ -224,12 +226,12 @@ export default async function Home({
                 {macro.label}
               </p>
               <p className="font-mono text-sm text-text">
-                {Math.round(macro.value)}g
+                {Math.round(macro.value)} / {macro.limit}g
               </p>
             </div>
             <div className="mt-2">
               <SegBar
-                filled={Math.round(Math.min(1, macro.value / 100) * 20)}
+                filled={Math.round(Math.min(1, macro.value / macro.limit) * 20)}
                 total={20}
                 color={macro.color}
                 height={8}

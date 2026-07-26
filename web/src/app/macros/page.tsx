@@ -4,7 +4,7 @@ import { foodLogs, profiles, weightLogs } from "@/db/schema"
 import { and, eq, gte, lt, desc } from "drizzle-orm"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { resolveTarget, dailyExtendedLimits } from "@/lib/targets"
+import { resolveTarget, dailyExtendedLimits, dailyMacroTargets } from "@/lib/targets"
 import { dayBounds } from "@/lib/dates"
 import { SegBar } from "@/components/seg-bar"
 
@@ -65,6 +65,7 @@ export default async function MacrosPage() {
 
   const target = resolveTarget(profile, latestWeight?.weightKg)
   const limits = dailyExtendedLimits(target)
+  const macroTargets = dailyMacroTargets(target, latestWeight?.weightKg ?? 70)
 
   const consumed = {
     calories: sum((e) => e.calories),
@@ -79,9 +80,9 @@ export default async function MacrosPage() {
 
   const coreRows = [
     { label: "Calories", value: consumed.calories, limit: target, unit: "kcal", color: "var(--color-accent)" },
-    { label: "Protein", value: consumed.protein, limit: null, unit: "g", color: "var(--color-protein)" },
-    { label: "Carbohydrate", value: consumed.carbs, limit: null, unit: "g", color: "var(--color-carbs)" },
-    { label: "Fat", value: consumed.fat, limit: null, unit: "g", color: "var(--color-fat)" },
+    { label: "Protein", value: consumed.protein, limit: macroTargets.proteinG, unit: "g", color: "var(--color-protein)" },
+    { label: "Carbohydrate", value: consumed.carbs, limit: macroTargets.carbsG, unit: "g", color: "var(--color-carbs)" },
+    { label: "Fat", value: consumed.fat, limit: macroTargets.fatG, unit: "g", color: "var(--color-fat)" },
   ]
 
   const extendedRows = [

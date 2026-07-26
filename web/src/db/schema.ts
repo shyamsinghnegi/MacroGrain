@@ -107,6 +107,8 @@ export const themePreset = [
   "kombu",
 ] as const
 
+export const unitSystem = ["metric", "imperial"] as const
+
 export const profiles = sqliteTable("profile", {
   userId: text("userId")
     .primaryKey()
@@ -138,6 +140,7 @@ export const profiles = sqliteTable("profile", {
   accentColor: text("accentColor", { enum: accentColor }).notNull().default("lime"),
   fontStyle: text("fontStyle", { enum: fontStyle }).notNull().default("default"),
   themePreset: text("themePreset", { enum: themePreset }).notNull().default("none"),
+  unitSystem: text("unitSystem", { enum: unitSystem }).notNull().default("metric"),
   createdAt: integer("createdAt", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -155,10 +158,6 @@ export const foods = sqliteTable("food", {
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
   barcode: text("barcode"),
-  // USDA FoodData Central's own stable per-food ID - used as the cache-dedup
-  // key for USDA-sourced rows the same way `barcode` is used for OFF rows,
-  // since most USDA entries (Foundation/raw-ingredient data especially)
-  // have no barcode/UPC at all.
   fdcId: integer("fdcId"),
   name: text("name").notNull(),
   brand: text("brand"),
@@ -268,14 +267,6 @@ export const weeklyTargetUpdates = sqliteTable("weeklyTargetUpdate", {
     .$defaultFn(() => new Date()),
 })
 
-// AI vision usage (photo food-recognition, nutrition-label OCR) - one row
-// per real Gemini API call, so a per-user daily cap can be enforced by
-// counting today's rows (same pattern as todayWaterTotal), independent of
-// Gemini's own free-tier quota. This is a safety ceiling on top of a
-// quota that's already free (no card, can't overspend), not a cost
-// control - the point is a clean in-app "limit reached" message instead
-// of a raw API error, and a hard stop against any bug that could hammer
-// the endpoint in a loop.
 export const aiScanKind = ["photo", "label"] as const
 
 export const aiUsageLogs = sqliteTable("aiUsageLog", {
@@ -309,17 +300,7 @@ export const waterLogs = sqliteTable("waterLog", {
     .$defaultFn(() => new Date()),
 })
 
-// Web Push subscriptions - one row per browser the user has granted
-// notification permission on (a user could have this on their phone and
-// laptop both). `endpoint` is the push service URL the browser gave us
-// (unique per browser install, doubles as the natural dedup key - re-
-// subscribing the same browser should update, not duplicate, this row).
-// `p256dh`/`auth` are the encryption keys Web Push requires to encrypt the
-// notification payload for that specific subscription - see RFC 8291.
-// `lastNotifiedAt` lets the cron route (api/cron/water-reminder) find only
-// subscriptions due for a nudge, mirroring water-reminders.tsx's original
-// client-side "at least 1 hour since last reminder" rule but enforced
-// server-side now that reminders can fire without the tab open.
+// One row per browser subscribed to Web Push notifications.
 export const pushSubscriptions = sqliteTable("pushSubscription", {
   id: text("id")
     .primaryKey()

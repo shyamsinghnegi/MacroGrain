@@ -7,6 +7,8 @@ import Link from "next/link"
 import { buttonClass } from "@/components/button"
 import { WeightChart } from "@/components/weight-chart"
 import { OnboardingCookieSync } from "@/components/onboarding-cookie-sync"
+import { getUnitSystem } from "@/lib/unit-preference"
+import { formatWeight, formatHeight } from "@/lib/units"
 
 const activityLabels: Record<string, string> = {
   sedentary: "Sedentary",
@@ -56,12 +58,13 @@ export default async function ProfilePage() {
   }
 
   const latestWeight = weightHistory.at(-1)
+  const unitSystem = await getUnitSystem(profile.unitSystem)
 
   const details = [
-    { label: "HEIGHT", value: profile.heightCm ? `${profile.heightCm} cm` : "—" },
+    { label: "HEIGHT", value: profile.heightCm ? formatHeight(profile.heightCm, unitSystem) : "—" },
     {
       label: "WEIGHT",
-      value: latestWeight ? `${latestWeight.weightKg} kg` : "—",
+      value: latestWeight ? formatWeight(latestWeight.weightKg, unitSystem) : "—",
     },
     {
       label: "AGE",
