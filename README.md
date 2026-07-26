@@ -16,6 +16,7 @@
   <img alt="Drizzle ORM" src="https://img.shields.io/badge/Drizzle-D1-C5F74F?logo=sqlite&logoColor=black">
   <img alt="Cloudflare D1" src="https://img.shields.io/badge/Cloudflare-D1-F38020?logo=cloudflare&logoColor=white">
   <img alt="Deployed on Vercel" src="https://img.shields.io/badge/Deployed%20on-Vercel-000000?logo=vercel&logoColor=white">
+  <a href="LICENSE"><img alt="All rights reserved" src="https://img.shields.io/badge/License-All%20rights%20reserved-lightgrey.svg"></a>
 </p>
 
 ---
@@ -173,71 +174,6 @@ MacroGrain/
 
 Each route folder keeps its Server Actions (`actions.ts`) and client-only pieces (`*-client.tsx`) next to the page that uses them, rather than a separate global actions directory.
 
-## Getting started
-
-### Prerequisites
-
-- Node.js 20+
-- A [Cloudflare D1](https://developers.cloudflare.com/d1/) database
-- A [Google OAuth](https://console.cloud.google.com/apis/credentials) client (for sign-in)
-- A [Gemini API key](https://ai.google.dev/) (free tier)
-- A [USDA FoodData Central API key](https://fdc.nal.usda.gov/api-key-signup.html) (free)
-- A VAPID keypair for push — generate with `npx web-push generate-vapid-keys`
-
-### Setup
-
-```bash
-cd web
-npm install
-```
-
-Create `.env.local` in `web/`:
-
-```bash
-# Cloudflare D1
-CLOUDFLARE_ACCOUNT_ID=
-CLOUDFLARE_DATABASE_ID=
-CLOUDFLARE_D1_TOKEN=
-
-# Auth.js
-AUTH_SECRET=          # openssl rand -base64 33
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-
-# AI / food data
-GEMINI_API_KEY=
-USDA_API_KEY=
-
-# Web Push
-NEXT_PUBLIC_VAPID_PUBLIC_KEY=
-VAPID_PRIVATE_KEY=
-
-# Cron
-CRON_SECRET=          # shared secret checked by /api/cron/water-reminder
-```
-
-Run migrations against your D1 database, then start the dev server (from `web/`):
-
-```bash
-npm run db:migrate
-npm run dev
-```
-
-### Scripts
-
-| Command | Purpose |
-|---|---|
-| `npm run dev` | Start the dev server |
-| `npm run build` | Production build |
-| `npm run lint` | ESLint |
-| `npm run db:generate` | Generate a Drizzle migration from schema changes |
-| `npm run db:migrate` | Apply migrations to D1 |
-| `npm run db:studio` | Open Drizzle Studio against D1 |
-
-### Push reminders in production
-
-Vercel Hobby's built-in Cron is capped at once/day, which isn't enough for hourly water reminders, so `GET /api/cron/water-reminder` is designed to be hit by an external scheduler (e.g. [cron-job.org](https://cron-job.org)) with an `Authorization: Bearer <CRON_SECRET>` header. If Vercel Deployment Protection is enabled, the scheduler also needs a [Protection Bypass for Automation](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection#protection-bypass-for-automation) secret.
-
 ## License
 
-Personal project, not currently licensed for reuse.
+All rights reserved — see [LICENSE](LICENSE). Source is public for portfolio/demo purposes; reuse, redistribution, or deployment isn't permitted without written permission.
