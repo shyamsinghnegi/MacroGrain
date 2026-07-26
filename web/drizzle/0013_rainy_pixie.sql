@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `weeklyTargetUpdate_userId_weekStart_unique` ON `weeklyTargetUpdate` (`userId`,`weekStart`);

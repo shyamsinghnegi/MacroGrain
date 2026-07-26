@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `food_barcode_unique` ON `food` (`barcode`);

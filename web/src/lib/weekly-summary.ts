@@ -83,7 +83,15 @@ export async function getOrComputeWeeklySummary(userId: string, timezone: string
       daysLogged: suggestion.daysLogged,
       confidence: suggestion.confidence,
     })
+    .onConflictDoNothing({ target: [weeklyTargetUpdates.userId, weeklyTargetUpdates.weekStart] })
     .returning()
 
-  return inserted
+  // A concurrent request for the same week won the race and inserted first
+  // - onConflictDoNothing() means `inserted` is undefined here, not an
+  // error, so return the row it just created instead of a second one.
+  if (inserted) return inserted
+
+  return db.query.weeklyTargetUpdates.findFirst({
+    where: and(eq(weeklyTargetUpdates.userId, userId), eq(weeklyTargetUpdates.weekStart, weekStartParam)),
+  })
 }

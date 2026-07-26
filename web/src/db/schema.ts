@@ -153,32 +153,40 @@ export const profiles = sqliteTable("profile", {
 
 export const foodSource = ["off", "usda", "ifct", "ai", "manual"] as const
 
-export const foods = sqliteTable("food", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  barcode: text("barcode"),
-  fdcId: integer("fdcId"),
-  name: text("name").notNull(),
-  brand: text("brand"),
-  caloriesPer100g: real("caloriesPer100g").notNull(),
-  proteinPer100g: real("proteinPer100g").notNull(),
-  carbsPer100g: real("carbsPer100g").notNull(),
-  fatPer100g: real("fatPer100g").notNull(),
-  // Extended nutrition - optional because manual entries and older cached
-  // rows won't have these, and Open Food Facts itself often doesn't report
-  // every field for a given product. Shown on the detail page only when
-  // present, never as fake zeros (same "don't fake confidence" pattern
-  // already used for the core four macros on manual entries).
-  saturatedFatPer100g: real("saturatedFatPer100g"),
-  fiberPer100g: real("fiberPer100g"),
-  sugarsPer100g: real("sugarsPer100g"),
-  sodiumPer100g: real("sodiumPer100g"), // grams, not mg - matches OFF's own unit
-  source: text("source", { enum: foodSource }).notNull(),
-  createdAt: integer("createdAt", { mode: "timestamp" })
-    .notNull()
-    .$defaultFn(() => new Date()),
-})
+export const foods = sqliteTable(
+  "food",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    barcode: text("barcode"),
+    fdcId: integer("fdcId"),
+    name: text("name").notNull(),
+    brand: text("brand"),
+    caloriesPer100g: real("caloriesPer100g").notNull(),
+    proteinPer100g: real("proteinPer100g").notNull(),
+    carbsPer100g: real("carbsPer100g").notNull(),
+    fatPer100g: real("fatPer100g").notNull(),
+    // Extended nutrition - optional because manual entries and older cached
+    // rows won't have these, and Open Food Facts itself often doesn't report
+    // every field for a given product. Shown on the detail page only when
+    // present, never as fake zeros (same "don't fake confidence" pattern
+    // already used for the core four macros on manual entries).
+    saturatedFatPer100g: real("saturatedFatPer100g"),
+    fiberPer100g: real("fiberPer100g"),
+    sugarsPer100g: real("sugarsPer100g"),
+    sodiumPer100g: real("sodiumPer100g"), // grams, not mg - matches OFF's own unit
+    source: text("source", { enum: foodSource }).notNull(),
+    createdAt: integer("createdAt", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  // Prevents duplicate `foods` rows when two barcode scans of the same
+  // never-before-seen product race each other (both miss the cache check
+  // before either insert lands). SQLite treats multiple NULLs as distinct
+  // under UNIQUE, so manual/AI entries (no barcode) are unaffected.
+  (food) => [unique().on(food.barcode)]
+)
 
 export const logSource = ["barcode", "ai_photo", "manual"] as const
 
@@ -246,26 +254,34 @@ export const weightLogs = sqliteTable(
 
 export const confidenceLevel = ["high", "low"] as const
 
-export const weeklyTargetUpdates = sqliteTable("weeklyTargetUpdate", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  userId: text("userId")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  weekStart: text("weekStart").notNull(), // YYYY-MM-DD, Monday of the week this covers
-  previousTargetKcal: integer("previousTargetKcal").notNull(),
-  suggestedTargetKcal: integer("suggestedTargetKcal").notNull(),
-  estimatedTdeeKcal: integer("estimatedTdeeKcal").notNull(),
-  avgIntakeKcal: integer("avgIntakeKcal").notNull(),
-  weightDeltaKg: real("weightDeltaKg").notNull(),
-  daysLogged: integer("daysLogged").notNull(),
-  confidence: text("confidence", { enum: confidenceLevel }).notNull(),
-  accepted: integer("accepted", { mode: "boolean" }).notNull().default(false),
-  createdAt: integer("createdAt", { mode: "timestamp" })
-    .notNull()
-    .$defaultFn(() => new Date()),
-})
+export const weeklyTargetUpdates = sqliteTable(
+  "weeklyTargetUpdate",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    weekStart: text("weekStart").notNull(), // YYYY-MM-DD, Monday of the week this covers
+    previousTargetKcal: integer("previousTargetKcal").notNull(),
+    suggestedTargetKcal: integer("suggestedTargetKcal").notNull(),
+    estimatedTdeeKcal: integer("estimatedTdeeKcal").notNull(),
+    avgIntakeKcal: integer("avgIntakeKcal").notNull(),
+    weightDeltaKg: real("weightDeltaKg").notNull(),
+    daysLogged: integer("daysLogged").notNull(),
+    confidence: text("confidence", { enum: confidenceLevel }).notNull(),
+    accepted: integer("accepted", { mode: "boolean" }).notNull().default(false),
+    createdAt: integer("createdAt", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  // Prevents duplicate weekly-checkpoint rows when two requests race to
+  // compute the same not-yet-cached week (e.g. two tabs open to
+  // /weekly-summary at once) - see getOrComputeWeeklySummary's check-then-
+  // insert in lib/weekly-summary.ts.
+  (weeklyTargetUpdate) => [unique().on(weeklyTargetUpdate.userId, weeklyTargetUpdate.weekStart)]
+)
 
 export const aiScanKind = ["photo", "label"] as const
 
