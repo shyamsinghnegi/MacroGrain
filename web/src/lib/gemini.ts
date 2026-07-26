@@ -1,14 +1,7 @@
 import "server-only"
 
-// Thin wrapper around Gemini's REST API (no SDK dependency - one endpoint,
-// not worth the package). Uses gemini-3.6-flash: confirmed free of charge
-// (input/output/context-caching all "Free of charge") on aistudio.google.com's
-// own rate-limit page as of writing, and Google's current top flash-tier
-// model with vision input - which is the whole reason Gemini was picked
-// over other providers. See checkAndRecordAiUsage's comment for the daily
-// cap this sits behind. If this ever graduates off the free tier the way
-// older flash models did, check aistudio.google.com/rate-limit for
-// whichever flash model currently shows "Free of charge" and swap it in.
+// gemini-3.6-flash confirmed free at aistudio.google.com/rate-limit - if it
+// stops being free, check that page for whichever flash model currently is.
 const GEMINI_MODEL = "gemini-3.6-flash"
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
 

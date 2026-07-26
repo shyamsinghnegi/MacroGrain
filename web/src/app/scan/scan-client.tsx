@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { BrowserMultiFormatReader } from "@zxing/browser"
 import { X, Zap, Camera, Image as ImageIcon } from "lucide-react"
 import Link from "next/link"
+import { Skeleton } from "@/components/skeleton"
 
 type ScanState = "idle" | "searching" | "found" | "not_found" | "camera_error"
 type ScanMode = "barcode" | "ai_photo"
@@ -20,25 +21,15 @@ export function ScanClient() {
   const [state, setState] = useState<ScanState>("idle")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [capturing, setCapturing] = useState(false)
+  const [capturingKind, setCapturingKind] = useState<"photo" | "label" | null>(null)
+  const [capturedPreview, setCapturedPreview] = useState<string | null>(null)
   const [torchSupported, setTorchSupported] = useState(false)
   const [torchOn, setTorchOn] = useState(false)
   const [tapFocusSupported, setTapFocusSupported] = useState(false)
   const [focusRing, setFocusRing] = useState<{ x: number; y: number; key: number } | null>(null)
   const focusRingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // "label" when gallery-picking for label OCR, "photo" for meal recognition -
-  // remembered so the hidden file input's onChange (fired after the OS
-  // picker closes) knows which endpoint to send the chosen image to.
   const galleryKindRef = useRef<"photo" | "label">("photo")
 
-  // Neither zxing's decodeFromVideoDevice nor the plain getUserMedia call
-  // below request any focus behavior - getUserMedia() constraints default
-  // to whatever the camera's own firmware picks, which on many devices is
-  // NOT continuous autofocus, producing the "stays blurry, never refocuses"
-  // symptom. `focusMode`/`torch` are non-standard "advanced" capabilities
-  // (part of the Image Capture API draft, not core MediaTrackConstraints),
-  // so this is entirely feature-detected: getCapabilities() lists what a
-  // given camera/browser actually supports before attempting to apply it -
-  // most desktop webcams and iOS Safari support neither at all.
   function tuneVideoTrack(stream: MediaStream) {
     const track = stream.getVideoTracks()[0]
     if (!track) return
@@ -58,12 +49,6 @@ export function ScanClient() {
     }
 
     setTorchSupported(Boolean(capabilities?.torch))
-    // Tap-to-focus needs both a way to say "focus here" (pointsOfInterest)
-    // and a focus mode that will actually act on a single point rather than
-    // continuously re-deciding on its own - "single-shot" is the standard
-    // one-time-focus-then-lock mode real camera apps use for tap-to-focus.
-    // "manual" is accepted too since some Android implementations only
-    // expose that name for the same behavior.
     const hasFocusPointMode =
       capabilities?.focusMode?.includes("single-shot") || capabilities?.focusMode?.includes("manual")
     setTapFocusSupported(Boolean(capabilities?.pointsOfInterest && hasFocusPointMode))
@@ -87,25 +72,6 @@ export function ScanClient() {
 
         if (!videoRef.current) return
 
-        // zxing's own decodeFromVideoDevice(deviceId, ...) only ever sends
-        // { deviceId: { exact } } to getUserMedia (confirmed in its source)
-        // - no resolution or focus constraints, same low-res-default bug
-        // AI Photo mode had before its fix. Building the stream ourselves
-        // and handing it to zxing's lower-level decodeFromStream() instead
-        // gets barcode mode the exact same fix, plus makes
-        // tuneVideoTrack's continuous-autofocus/torch/tap-to-focus support
-        // apply here too instead of only in AI Photo mode.
-        //
-        // Uses facingMode (not deviceId: exact) for the same reason AI
-        // Photo mode does - pairing an exact deviceId constraint with
-        // width/height ideals caused several Android Chrome builds to
-        // silently ignore the resolution ideal and fall back to a low
-        // default (confirmed: this is what stayed blurry after the first
-        // fix, on a device where AI Photo's facingMode-only stream came
-        // out sharp). `devices`/`rearCamera` above is now only used to
-        // confirm a camera actually exists, not to pin a specific one -
-        // facingMode: environment already selects the rear camera on
-        // virtually every phone without needing its literal deviceId.
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: { ideal: "environment" },
@@ -151,12 +117,6 @@ export function ScanClient() {
     async function startPhoto() {
       setState("searching")
       try {
-        // No resolution was requested before, so the browser picked its own
-        // default - on mobile Chrome/Safari that's often ~640x480, nowhere
-        // near enough detail to read small nutrition-label print even with
-        // perfect focus. `ideal` (not `exact`) asks for the camera's best
-        // available up to 4K without hard-failing on devices that can't
-        // reach it - getUserMedia negotiates down automatically.
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: { ideal: "environment" },
@@ -205,10 +165,6 @@ export function ScanClient() {
     }
   }, [router, mode])
 
-  // Reads the live stream directly off the video element rather than
-  // streamRef, since streamRef is only populated in AI Photo mode -
-  // zxing owns the barcode-mode stream internally, but always assigns it
-  // to videoRef.current.srcObject regardless (see tuneVideoTrack's comment).
   async function toggleTorch() {
     const stream = videoRef.current?.srcObject as MediaStream | null
     const track = stream?.getVideoTracks()[0]
@@ -219,19 +175,10 @@ export function ScanClient() {
       await track.applyConstraints({ advanced: [{ torch: next } as MediaTrackConstraintSet] })
       setTorchOn(next)
     } catch {
-      // Some devices report torch: true in getCapabilities() but still
-      // reject applying it (confirmed as a real inconsistency across
-      // Android camera implementations) - fail silently rather than
-      // showing an error for a non-essential feature.
+      // some devices report torch support but reject applying it
     }
   }
 
-  // Standard tap-to-focus, matching what a native camera app does: tap a
-  // point on the preview, the camera focuses there once. Continuous
-  // autofocus (tuneVideoTrack) doesn't always recover well on close-up,
-  // low-contrast subjects like a nutrition label - a phone's own camera app
-  // solves the exact same problem with the exact same gesture, so this
-  // mirrors that rather than inventing new UI.
   async function tapToFocus(e: React.PointerEvent<HTMLVideoElement>) {
     const video = videoRef.current
     const stream = video?.srcObject as MediaStream | null
@@ -239,11 +186,6 @@ export function ScanClient() {
     if (!video || !track || !tapFocusSupported) return
 
     const rect = video.getBoundingClientRect()
-    // Normalized 0-1 coordinates, as pointsOfInterest requires - not raw
-    // pixels. video.getBoundingClientRect() is the rendered/displayed size
-    // (the video is CSS object-cover'd to fill the screen), which is the
-    // correct basis here since that's what the user is actually looking at
-    // and tapping, not the camera's native capture resolution.
     const x = (e.clientX - rect.left) / rect.width
     const y = (e.clientY - rect.top) / rect.height
 
@@ -266,13 +208,24 @@ export function ScanClient() {
         ],
       })
     } catch {
-      // Same rationale as toggleTorch - getCapabilities() reporting support
-      // doesn't guarantee applyConstraints() succeeds on every device.
+      // ignore, same rationale as toggleTorch
     }
+  }
+
+  function clearCapturingOverlay() {
+    setCapturing(false)
+    setCapturingKind(null)
+    setCapturedPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return null
+    })
   }
 
   async function analyzePhoto(kind: "photo" | "label", blob: Blob) {
     setCapturing(true)
+    setCapturingKind(kind)
+    const previewUrl = URL.createObjectURL(blob)
+    setCapturedPreview(previewUrl)
     try {
       const formData = new FormData()
       formData.set("photo", blob, "capture.jpg")
@@ -284,7 +237,7 @@ export function ScanClient() {
       if (!res.ok) {
         setState("camera_error")
         setErrorMessage(data?.message ?? "Could not analyze photo. Try again.")
-        setCapturing(false)
+        clearCapturingOverlay()
         return
       }
 
@@ -295,11 +248,12 @@ export function ScanClient() {
         kind === "photo" ? "mg_ai_photo_result" : "mg_ai_label_result",
         JSON.stringify(data)
       )
+      URL.revokeObjectURL(previewUrl)
       router.push(kind === "photo" ? "/scan/photo-confirm" : "/scan/label-confirm")
     } catch (e) {
       setState("camera_error")
       setErrorMessage(e instanceof Error ? e.message : "Could not analyze photo.")
-      setCapturing(false)
+      clearCapturingOverlay()
     }
   }
 
@@ -412,11 +366,6 @@ export function ScanClient() {
             <Zap size={15} />
           </button>
         ) : (
-          // Reserves the same layout space so Barcode/AI Photo toggle stays
-          // centered - most devices (all of iOS, many Android cameras/
-          // browsers) don't expose torch control at all, confirmed via
-          // getCapabilities() rather than assumed, so the button is hidden
-          // entirely rather than shown non-functional.
           <span className="size-9" />
         )}
       </div>
@@ -495,6 +444,46 @@ export function ScanClient() {
           </>
         )}
       </div>
+
+      {capturing && (
+        <div className="absolute inset-0 z-30 flex flex-col bg-bg-deep">
+          {capturedPreview && (
+            <img
+              src={capturedPreview}
+              alt=""
+              className="absolute inset-0 size-full object-cover opacity-40"
+            />
+          )}
+          <div className="absolute inset-0 bg-bg-deep/60" />
+          <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 px-8">
+            <div className="flex items-center gap-1.5 font-mono text-xs text-accent">
+              <span className="size-1.5 animate-pulse rounded-full bg-accent" />
+              {capturingKind === "label" ? "READING LABEL…" : "ANALYZING MEAL…"}
+            </div>
+            <div className="w-full max-w-sm rounded-hero bg-surface p-5 shadow-hero">
+              <div className="flex items-center gap-3.5">
+                <Skeleton className="size-16 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="mt-2 h-3 w-1/2" />
+                </div>
+              </div>
+              <div className="mt-5 flex items-baseline justify-between">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-9 w-16" />
+              </div>
+              <div className="mt-4 flex flex-col gap-3">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+              </div>
+            </div>
+            <span className="font-mono text-[11px] text-text-faint">
+              This can take a few seconds
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

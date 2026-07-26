@@ -55,11 +55,6 @@ type FieldKey = "calories" | "protein" | "carbs" | "fat" | "saturatedFat" | "fib
 function ConfirmForm({ result }: { result: NutritionLabelResult }) {
   const [state, formAction, pending] = useActionState(createLabelFoodAndLog, undefined)
   const servingMatch = result.servingSizeDescription?.match(/(\d+(?:\.\d+)?)\s*g/i)
-  // String, not number - same reasoning as photo-confirm-client.tsx's
-  // portion field: a numeric useState forces every keystroke through
-  // Number(...), so clearing the box to type a new value produced NaN
-  // (worse than portion's case, which at least fell back to a fixed
-  // number) instead of ever reaching an empty, freely-editable box.
   const [serving, setServing] = useState(servingMatch ? servingMatch[1] : "100")
   const servingValue = Math.max(1, Number(serving) || 0)
   const [name, setName] = useState("Scanned product")
@@ -115,6 +110,8 @@ function ConfirmForm({ result }: { result: NutritionLabelResult }) {
           <div className="flex items-center gap-1.5">
             <input
               type="number"
+              inputMode="decimal"
+              step="0.1"
               value={serving}
               onChange={(e) => setServing(e.target.value)}
               className="w-16 bg-transparent text-right font-mono text-sm text-text outline-none"

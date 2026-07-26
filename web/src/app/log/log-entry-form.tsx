@@ -76,6 +76,8 @@ export function LogEntryForm({
           id="quantityG"
           name="quantityG"
           type="number"
+          inputMode="decimal"
+          step="0.1"
           value={quantityText}
           onChange={(e) => setQuantityText(e.target.value)}
         />

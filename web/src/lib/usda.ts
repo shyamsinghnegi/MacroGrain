@@ -1,13 +1,6 @@
 import "server-only"
 
 // USDA FoodData Central API - https://api.nal.usda.gov/fdc/v1/foods/search
-// Confirmed response shape by hitting the live API directly: top-level
-// { totalHits, foods: [...] }, each food has a flat foodNutrients array
-// (not nested/keyed by name) where each entry is
-// { nutrientId, nutrientName, unitName, value }. Standard USDA nutrient IDs
-// (stable across all foods, not per-food) are used to pick out the fields
-// this app needs rather than matching on nutrientName strings, which vary
-// in capitalization/wording across entries.
 const NUTRIENT_ID = {
   calories: 1008, // Energy, kcal
   protein: 1003, // g
@@ -39,9 +32,6 @@ type UsdaSearchResponse = {
 }
 
 export type UsdaSearchResult = {
-  // USDA foods aren't barcode-keyed the way OFF's are (most Foundation/
-  // Survey entries have no gtinUpc at all) - fdcId is USDA's own stable
-  // per-food identifier, used here as the cache key instead of a barcode.
   fdcId: number
   barcode: string | null
   name: string
@@ -65,11 +55,6 @@ function nutrientValue(nutrients: UsdaNutrient[] | undefined, id: number): numbe
   return nutrients?.find((n) => n.nutrientId === id)?.value
 }
 
-// USDA's per-food values are already "per 100g" for the data types this app
-// cares about (Branded, Foundation, SR Legacy all report per-100g in
-// foodNutrients) - no unit conversion needed, unlike sodium's mg-vs-g
-// mismatch which is handled by the caller (foods.sodiumPer100g stores
-// grams, matching OFF's convention - see the /1000 conversion below).
 export async function searchUsdaFoods(
   query: string,
   pageSize: number = 15
@@ -83,10 +68,6 @@ export async function searchUsdaFoods(
   url.searchParams.set("api_key", apiKey)
   url.searchParams.set("query", query)
   url.searchParams.set("pageSize", String(pageSize))
-  // Branded (packaged, UPC-tagged) and Foundation (raw/whole ingredients)
-  // cover the two things a user is actually likely to search for here -
-  // excludes USDA's "Survey (FNDDS)" and "SR Legacy" datasets, which lean
-  // toward recipe/composite entries less useful for a quick lookup.
   url.searchParams.set("dataType", "Branded,Foundation")
 
   const res = await fetch(url.toString())
@@ -97,8 +78,6 @@ export async function searchUsdaFoods(
   const data: UsdaSearchResponse = await res.json()
   const rawFoods = data.foods ?? []
 
-  // Same "don't fake confidence" rule as OFF: drop entries missing any of
-  // the 4 core macros rather than showing/storing fake zeros.
   const results = rawFoods
     .map((food) => {
       const calories = nutrientValue(food.foodNutrients, NUTRIENT_ID.calories)
@@ -130,8 +109,6 @@ export async function searchUsdaFoods(
         saturatedFatPer100g: nutrientValue(food.foodNutrients, NUTRIENT_ID.saturatedFat) ?? null,
         fiberPer100g: nutrientValue(food.foodNutrients, NUTRIENT_ID.fiber) ?? null,
         sugarsPer100g: nutrientValue(food.foodNutrients, NUTRIENT_ID.sugars) ?? null,
-        // foods.sodiumPer100g is stored in grams (matches OFF's own unit,
-        // per the existing schema comment) - USDA reports sodium in mg.
         sodiumPer100g: sodiumMg !== undefined ? sodiumMg / 1000 : null,
       }
     })

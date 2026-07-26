@@ -42,21 +42,9 @@ export async function GET(request: NextRequest) {
 
   const toInsert = hits.filter((h) => !cachedBarcodes.has(h.barcode))
 
-  // D1's real ceiling is ~100 bound params per statement (confirmed
-  // directly: 7 rows x 14 params = 98 succeeds, 8 rows x 14 = 112 fails with
-  // "too many SQL variables"). Computing the chunk size from the actual
-  // column count instead of a hardcoded row count, so adding another column
-  // later (like saturatedFatPer100g/fiber/sugars/sodium just did - which
-  // silently broke the previous hardcoded chunk-of-8) can't reintroduce
-  // this bug without also shrinking the chunk size automatically.
-  const D1_PARAM_LIMIT = 90 // leaves headroom under the ~100 ceiling
-  // Drizzle binds every column as a param, including $defaultFn ones (id,
-  // createdAt) - so this is the *full* row width, not just the fields set
-  // explicitly below: id, fdcId, barcode, name, brand, 4 core macros, 4
-  // extended nutrition fields, source, createdAt = 15. Shared by both the
-  // OFF and USDA insert loops below - computed from the real column count
-  // so adding another column later can't silently reintroduce the "too
-  // many SQL variables" bug a hardcoded row count previously caused.
+  // D1 caps ~100 bound params per statement - chunk size computed from
+  // actual column count (15) so adding a column can't silently break this.
+  const D1_PARAM_LIMIT = 90
   const COLUMNS_PER_ROW = 15
   const CHUNK_SIZE = Math.max(1, Math.floor(D1_PARAM_LIMIT / COLUMNS_PER_ROW))
   const inserted: typeof alreadyCached = []
@@ -92,16 +80,6 @@ export async function GET(request: NextRequest) {
     .map((h) => byBarcode.get(h.barcode))
     .filter((f): f is NonNullable<typeof f> => f !== undefined)
 
-  // On the very first page only, also surface local-only matches (manually
-  // created foods, or past barcode scans) that OFF's text search didn't
-  // return - covers foods that exist in this app's own catalog but aren't
-  // phrased the way OFF indexes them. USDA results are fetched here too,
-  // also first-page-only: USDA's own pagination semantics (page/pageSize)
-  // don't line up with OFF-driven `offset`/`nextOffset` math above, so
-  // rather than trying to interleave two independently-paginated sources
-  // this app - like the local-only case - only surfaces USDA on page 1,
-  // where a duplicate offset=0 fetch cost is negligible and "See more
-  // results" continuing to page purely through OFF afterward is fine.
   let localOnly: typeof offOrdered = []
   let usdaOrdered: typeof offOrdered = []
   if (offset === 0) {
@@ -116,10 +94,6 @@ export async function GET(request: NextRequest) {
     const offIds = new Set(offOrdered.map((f) => f.id))
     localOnly = localMatches.filter((f) => !offIds.has(f.id))
 
-    // USDA_API_KEY is optional (feature degrades to OFF-only search if
-    // unset, rather than breaking search entirely) - checked here instead
-    // of inside searchUsdaFoods so a missing key produces "no USDA results"
-    // silently rather than a thrown error surfacing as a 500 on every search.
     if (process.env.USDA_API_KEY) {
       try {
         const { results: usdaHits } = await searchUsdaFoods(q, PAGE_SIZE)

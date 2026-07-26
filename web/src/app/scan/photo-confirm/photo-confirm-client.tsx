@@ -20,15 +20,6 @@ function readStashedResult(): FoodPhotoResult | "invalid" {
   }
 }
 
-// Reads the estimate captured by ScanClient (stashed in sessionStorage
-// right before navigating here, since there's no server-side route param
-// that could carry a full AI response). Read via a lazy useState
-// initializer, not an effect - sessionStorage is synchronously available,
-// not an async external subscription. Missing/invalid data (e.g. a direct
-// visit to this URL) sends the user back to scan rather than rendering a
-// broken confirm screen. Server-rendered pass returns "invalid" (no
-// sessionStorage there) but is immediately replaced by the real client
-// read on hydration, so this never sticks on a real navigation.
 export function PhotoConfirmClient() {
   const [result] = useState<FoodPhotoResult | "invalid">(readStashedResult)
 
@@ -51,12 +42,6 @@ export function PhotoConfirmClient() {
 
 function ConfirmForm({ estimate }: { estimate: FoodPhotoResult }) {
   const [state, formAction, pending] = useActionState(createAiFoodAndLog, undefined)
-  // Kept as a string, not a number - a numeric useState forces every
-  // keystroke through Number(...), so clearing the field to type a new
-  // value always collapsed back to a fallback (1) instead of ever reaching
-  // an empty box, making the old digit stick around while new ones got
-  // appended after it. `portionValue` below is the derived number actually
-  // used for math/submission; `portion` is purely what the input displays.
   const [portion, setPortion] = useState(() => {
     const match = estimate.portionDescription.match(/(\d+)\s*g/i)
     return match ? match[1] : "250"
@@ -124,7 +109,8 @@ function ConfirmForm({ estimate }: { estimate: FoodPhotoResult }) {
             <div className="mt-0.5 flex items-baseline gap-1">
               <input
                 type="number"
-                inputMode="numeric"
+                inputMode="decimal"
+                step="0.1"
                 min={1}
                 value={portion}
                 onChange={(e) => setPortion(e.target.value)}

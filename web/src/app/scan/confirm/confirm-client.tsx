@@ -7,6 +7,7 @@ import { logEntry } from "@/app/log/actions"
 import { FieldError } from "@/components/input"
 import { Button } from "@/components/button"
 import { SourceBadge } from "@/components/source-badge"
+import { Skeleton } from "@/components/skeleton"
 
 type Food = {
   id: string
@@ -48,19 +49,39 @@ export function ConfirmBarcodeClient({ barcode }: { barcode: string }) {
 
   if (lookup.status === "loading") {
     return (
-      <div className="mx-auto flex min-h-screen w-full flex-col items-center justify-center gap-4 px-4 sm:px-6 pb-28 sm:max-w-xl">
-        <div className="flex gap-1.5">
-          {[0, 0.2, 0.4].map((delay) => (
-            <span
-              key={delay}
-              className="size-2 animate-pulse rounded-full bg-accent"
-              style={{ animationDelay: `${delay}s` }}
-            />
-          ))}
+      <div className="mx-auto flex min-h-screen w-full flex-col gap-5 px-4 sm:px-6 pt-16 pb-28 sm:max-w-xl">
+        <div className="flex items-center justify-between">
+          <Link href="/scan" className="font-mono text-lg text-text-muted">
+            ←
+          </Link>
+          <p className="text-base font-semibold text-text">Confirm entry</p>
+          <SourceBadge source="barcode" />
         </div>
-        <p className="font-mono text-sm text-text-muted">
-          Looking up barcode {barcode}…
-        </p>
+
+        <div className="flex items-center gap-3.5">
+          <Skeleton className="size-16 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <Skeleton className="h-5 w-3/4" />
+            <Skeleton className="mt-2 h-3 w-1/2" />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 font-mono text-xs text-accent">
+          <span className="size-1.5 animate-pulse rounded-full bg-accent" />
+          LOOKING UP {barcode}…
+        </div>
+
+        <div className="rounded-hero bg-surface p-5 shadow-hero">
+          <div className="mb-4 flex items-baseline justify-between">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-9 w-16" />
+          </div>
+          <div className="flex flex-col gap-3">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full" />
+          </div>
+        </div>
       </div>
     )
   }

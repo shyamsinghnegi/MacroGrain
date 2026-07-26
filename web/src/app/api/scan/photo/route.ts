@@ -4,9 +4,6 @@ import { checkAndRecordAiUsage } from "@/lib/ai-usage"
 import { getTimezone } from "@/lib/timezone"
 import { estimateFoodFromPhoto } from "@/lib/gemini"
 
-// Max upload size for a single photo scan - keeps requests well under
-// Gemini's 20MB inline-data limit and away from Vercel's body size ceiling,
-// while still being generous for a phone camera photo.
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024
 
 export async function POST(request: NextRequest) {

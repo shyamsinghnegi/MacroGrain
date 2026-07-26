@@ -1,10 +1,3 @@
-// Minimal service worker whose only job is to receive Web Push events and
-// show a notification - this is the piece that makes reminders survive a
-// closed tab/app, which nothing in the main React app can do (that code
-// only runs while a tab is open). No caching/offline logic here - this
-// project isn't trying to be a full offline-capable PWA, just needs a
-// registered SW as Web Push's technical prerequisite.
-
 self.addEventListener("push", (event) => {
   if (!event.data) return
 
@@ -24,9 +17,6 @@ self.addEventListener("push", (event) => {
   )
 })
 
-// Tapping the notification focuses an existing MacroGrain tab if one is
-// open, or opens a new one - without this, tapping a push notification on
-// most platforms just dismisses it with no action.
 self.addEventListener("notificationclick", (event) => {
   event.notification.close()
   event.waitUntil(

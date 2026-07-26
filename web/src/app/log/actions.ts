@@ -56,11 +56,6 @@ export async function createFood(
   redirect(`/log?foodId=${food.id}${suffix}`)
 }
 
-// Saves a confirmed AI photo estimate as a `foods` row (source "ai",
-// per-100g normalized from the user-confirmed portion) and immediately logs
-// it, in one step - unlike barcode/manual foods, an AI estimate isn't a
-// reusable catalog entry someone will look up again by name, so there's no
-// separate "create food" screen before this.
 export async function createAiFoodAndLog(
   _prevState: AiFoodEstimateFormState,
   formData: FormData
@@ -124,12 +119,6 @@ export async function createAiFoodAndLog(
   redirect(`${destination}${separator}toast=${toast}`)
 }
 
-// Saves a confirmed nutrition-label OCR read as a `foods` row (source
-// "ai" - it's still an AI-produced entry, just from label text rather than
-// a photo of the meal itself) and logs it, same one-step pattern as
-// createAiFoodAndLog. Optional fields (saturatedFat/fiber/sugars/sodium)
-// are only set when the label actually printed them, matching the
-// "don't fake confidence" rule already used for OFF/manual foods.
 export async function createLabelFoodAndLog(
   _prevState: LabelEstimateFormState,
   formData: FormData
