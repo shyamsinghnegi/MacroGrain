@@ -5,6 +5,8 @@ import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
 import { ToastFromParam } from "@/components/toast";
 import { TimezoneSync } from "@/components/timezone-sync";
+import { DayRolloverRefresh } from "@/components/day-rollover-refresh";
+import { PageTransition } from "@/components/page-transition";
 import { auth } from "@/auth";
 import { getThemeSettings } from "@/lib/theme";
 import { hasCompletedOnboarding } from "@/lib/onboarding";
@@ -98,9 +100,10 @@ export default async function RootLayout({
       className={`${doto.variable} ${ibmPlexMono.variable} ${ibmPlexSans.variable} ${orbitron.variable} ${rajdhani.variable} h-full antialiased`}
     >
       <body data-font={fontStyle} className="min-h-full flex flex-col">
-        {children}
+        <PageTransition>{children}</PageTransition>
         {session?.user && onboarded && <BottomNav />}
         {session?.user && <TimezoneSync />}
+        {session?.user && <DayRolloverRefresh />}
         <Suspense fallback={null}>
           <ToastFromParam />
         </Suspense>

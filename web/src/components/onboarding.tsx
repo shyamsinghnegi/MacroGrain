@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { Button } from "./button"
 import { DitherBg } from "./dither-bg"
 
@@ -54,7 +55,14 @@ export function Onboarding({
             </button>
           </form>
           <p className="mt-2 text-center font-mono text-[11px] text-text-faint">
-            by continuing you accept the terms
+            by continuing you accept the{" "}
+            <Link href="/terms" className="text-text-muted underline">
+              terms
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="text-text-muted underline">
+              privacy policy
+            </Link>
           </p>
         </div>
       </div>

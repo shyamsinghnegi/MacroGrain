@@ -376,4 +376,74 @@ body {
       animation: none;
     }
   }
+
+  /* Page navigation transitions - driven by React's <ViewTransition>
+     (see src/app/layout.tsx's <PageTransition>), which assigns the
+     view-transition-name "mg-page" to the outgoing/incoming page content
+     and tags the transition type ("nav-tab" for bottom-nav switches vs the
+     untagged default for everything else, e.g. drill-in pages). "Left to
+     right" slide: the new page enters from the right, the old page exits
+     to the left - the standard "moving forward into the app" direction.
+     Bottom-nav tab switches get a quicker plain crossfade instead, since
+     switching between sibling tabs (Home/Log/Weight/...) isn't really
+     "forward" or "back." */
+  ::view-transition-old(mg-page),
+  ::view-transition-new(mg-page) {
+    animation-duration: 260ms;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  ::view-transition-old(mg-page) {
+    animation-name: mg-page-out;
+  }
+  ::view-transition-new(mg-page) {
+    animation-name: mg-page-in;
+  }
+  ::view-transition-old(mg-page-tab),
+  ::view-transition-new(mg-page-tab) {
+    animation-duration: 150ms;
+    animation-timing-function: ease-out;
+  }
+  ::view-transition-old(mg-page-tab) {
+    animation-name: mg-fade-out;
+  }
+  ::view-transition-new(mg-page-tab) {
+    animation-name: mg-fade-in;
+  }
+
+  @keyframes mg-page-in {
+    from {
+      opacity: 0;
+      transform: translateX(28px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  @keyframes mg-page-out {
+    from {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateX(-28px);
+    }
+  }
+  @keyframes mg-fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
+      animation-duration: 0.01ms !important;
+    }
+  }
 }

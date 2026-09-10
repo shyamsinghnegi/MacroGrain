@@ -30,6 +30,19 @@ export function ScanClient() {
   const focusRingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const galleryKindRef = useRef<"photo" | "label">("photo")
 
+  // Stopping a track that still has `torch: true` applied doesn't reliably
+  // turn the physical LED off on all devices - the hardware resource isn't
+  // guaranteed to release just because the track stopped. Explicitly
+  // de-asserting the constraint first is what actually turns it off.
+  async function stopTracksAndTorch(stream: MediaStream | null) {
+    if (!stream) return
+    const track = stream.getVideoTracks()[0]
+    if (track && track.readyState === "live") {
+      await track.applyConstraints({ advanced: [{ torch: false } as MediaTrackConstraintSet] }).catch(() => {})
+    }
+    stream.getTracks().forEach((t) => t.stop())
+  }
+
   function tuneVideoTrack(stream: MediaStream) {
     const track = stream.getVideoTracks()[0]
     if (!track) return
@@ -156,7 +169,7 @@ export function ScanClient() {
       cancelled = true
       controlsRef.current?.stop()
       controlsRef.current = null
-      streamRef.current?.getTracks().forEach((t) => t.stop())
+      stopTracksAndTorch(streamRef.current)
       streamRef.current = null
       setTorchSupported(false)
       setTorchOn(false)
@@ -248,7 +261,9 @@ export function ScanClient() {
       const data = await res.json()
 
       controlsRef.current?.stop()
-      streamRef.current?.getTracks().forEach((t) => t.stop())
+      await stopTracksAndTorch(streamRef.current)
+      streamRef.current = null
+      setTorchOn(false)
 
       sessionStorage.setItem(
         kind === "photo" ? "mg_ai_photo_result" : "mg_ai_label_result",
