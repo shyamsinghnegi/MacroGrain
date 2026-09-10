@@ -459,12 +459,12 @@ export function ScanClient() {
                 Read label
               </button>
             </div>
-            <div className="flex gap-4">
+            <div className="flex flex-wrap justify-center gap-2.5">
               <button
                 type="button"
                 disabled={capturing}
                 onClick={() => pickFromGallery("photo")}
-                className="flex items-center gap-1.5 font-mono text-[11px] text-text-muted disabled:opacity-60"
+                className="flex items-center gap-1.5 rounded-pill bg-black/50 px-3.5 py-2 font-mono text-[11px] text-text backdrop-blur-md disabled:opacity-60"
               >
                 <ImageIcon size={13} />
                 Meal from gallery
@@ -473,7 +473,7 @@ export function ScanClient() {
                 type="button"
                 disabled={capturing}
                 onClick={() => pickFromGallery("label")}
-                className="flex items-center gap-1.5 font-mono text-[11px] text-text-muted disabled:opacity-60"
+                className="flex items-center gap-1.5 rounded-pill bg-black/50 px-3.5 py-2 font-mono text-[11px] text-text backdrop-blur-md disabled:opacity-60"
               >
                 <ImageIcon size={13} />
                 Label from gallery
