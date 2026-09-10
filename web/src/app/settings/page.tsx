@@ -8,6 +8,7 @@ import { ChevronRight, Droplet, Palette } from "lucide-react"
 import { ToastFromParam } from "@/components/toast"
 import { RemindersToggle } from "@/components/reminders-toggle"
 import { UnitToggle } from "@/components/unit-toggle"
+import { DeleteAccountButton } from "@/components/delete-account-button"
 
 // Settings — see design_handoff_macrograin/weekly+goals+accountandsettings.png
 // screen 15 "Account & settings": profile row, DATA SOURCES section with
@@ -143,6 +144,18 @@ export default async function SettingsPage() {
           Sign out
         </button>
       </form>
+
+      <DeleteAccountButton />
+
+      <p className="text-center font-mono text-[11px] text-text-faint">
+        <Link href="/terms" className="underline">
+          Terms
+        </Link>{" "}
+        ·{" "}
+        <Link href="/privacy" className="underline">
+          Privacy Policy
+        </Link>
+      </p>
     </div>
   )
 }
