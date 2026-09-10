@@ -369,7 +369,7 @@ export function ScanClient() {
       <div className="absolute top-0 right-0 left-0 z-20 flex items-center justify-between px-6 pt-16">
         <Link
           href="/"
-          className="flex size-9 items-center justify-center rounded-full bg-black/50 text-text backdrop-blur-md"
+          className="flex size-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-md"
           aria-label="Close"
         >
           <X size={18} />
@@ -379,7 +379,7 @@ export function ScanClient() {
             type="button"
             onClick={() => setMode("barcode")}
             className={`rounded-full px-3 py-1.5 font-mono text-[10px] tracking-wide uppercase transition-colors ${
-              mode === "barcode" ? "bg-accent text-bg" : "text-text-muted"
+              mode === "barcode" ? "bg-accent text-bg" : "text-white/60"
             }`}
           >
             Barcode
@@ -388,7 +388,7 @@ export function ScanClient() {
             type="button"
             onClick={() => setMode("ai_photo")}
             className={`rounded-full px-3 py-1.5 font-mono text-[10px] tracking-wide uppercase transition-colors ${
-              mode === "ai_photo" ? "bg-accent text-bg" : "text-text-muted"
+              mode === "ai_photo" ? "bg-accent text-bg" : "text-white/60"
             }`}
           >
             AI Photo
@@ -401,7 +401,7 @@ export function ScanClient() {
             aria-label={torchOn ? "Turn off flash" : "Turn on flash"}
             aria-pressed={torchOn}
             className={`flex size-9 items-center justify-center rounded-full backdrop-blur-md transition-colors ${
-              torchOn ? "bg-accent text-bg" : "bg-black/50 text-text"
+              torchOn ? "bg-accent text-bg" : "bg-black/50 text-white"
             }`}
           >
             <Zap size={15} />
@@ -434,7 +434,7 @@ export function ScanClient() {
               <span className="size-1.5 animate-pulse rounded-full bg-accent" />
               SEARCHING · align barcode in frame
             </div>
-            <span className="font-mono text-[11px] text-text-faint">
+            <span className="font-mono text-[11px] text-white/60">
               detect → read → confirm
             </span>
           </>
@@ -454,7 +454,7 @@ export function ScanClient() {
                 type="button"
                 disabled={capturing}
                 onClick={() => capturePhoto("label")}
-                className="flex items-center gap-2 rounded-pill border-[1.5px] border-white/25 px-5 py-3 text-sm font-medium text-text disabled:opacity-60"
+                className="flex items-center gap-2 rounded-pill border-[1.5px] border-white/25 px-5 py-3 text-sm font-medium text-white disabled:opacity-60"
               >
                 Read label
               </button>
@@ -464,7 +464,7 @@ export function ScanClient() {
                 type="button"
                 disabled={capturing}
                 onClick={() => pickFromGallery("photo")}
-                className="flex items-center gap-1.5 rounded-pill bg-black/50 px-3.5 py-2 font-mono text-[11px] text-text backdrop-blur-md disabled:opacity-60"
+                className="flex items-center gap-1.5 rounded-pill bg-black/50 px-3.5 py-2 font-mono text-[11px] text-white backdrop-blur-md disabled:opacity-60"
               >
                 <ImageIcon size={13} />
                 Meal from gallery
@@ -473,13 +473,13 @@ export function ScanClient() {
                 type="button"
                 disabled={capturing}
                 onClick={() => pickFromGallery("label")}
-                className="flex items-center gap-1.5 rounded-pill bg-black/50 px-3.5 py-2 font-mono text-[11px] text-text backdrop-blur-md disabled:opacity-60"
+                className="flex items-center gap-1.5 rounded-pill bg-black/50 px-3.5 py-2 font-mono text-[11px] text-white backdrop-blur-md disabled:opacity-60"
               >
                 <ImageIcon size={13} />
                 Label from gallery
               </button>
             </div>
-            <span className="font-mono text-[11px] text-text-faint">
+            <span className="font-mono text-[11px] text-white/60">
               AI estimates nutrition · always double-check before saving
             </span>
           </>
