@@ -5,6 +5,7 @@ import {
   primaryKey,
   real,
   unique,
+  index,
 } from "drizzle-orm/sqlite-core"
 import type { AdapterAccountType } from "next-auth/adapters"
 
@@ -43,16 +44,21 @@ export const accounts = sqliteTable(
     primaryKey({
       columns: [account.provider, account.providerAccountId],
     }),
+    index("account_userId_idx").on(account.userId),
   ]
 )
 
-export const sessions = sqliteTable("session", {
-  sessionToken: text("sessionToken").primaryKey(),
-  userId: text("userId")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  expires: integer("expires", { mode: "timestamp" }).notNull(),
-})
+export const sessions = sqliteTable(
+  "session",
+  {
+    sessionToken: text("sessionToken").primaryKey(),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expires: integer("expires", { mode: "timestamp" }).notNull(),
+  },
+  (session) => [index("session_userId_idx").on(session.userId)]
+)
 
 export const verificationTokens = sqliteTable(
   "verificationToken",
@@ -185,41 +191,48 @@ export const foods = sqliteTable(
   // never-before-seen product race each other (both miss the cache check
   // before either insert lands). SQLite treats multiple NULLs as distinct
   // under UNIQUE, so manual/AI entries (no barcode) are unaffected.
-  (food) => [unique().on(food.barcode)]
+  (food) => [unique().on(food.barcode), index("food_name_idx").on(food.name)]
 )
 
 export const logSource = ["barcode", "ai_photo", "manual"] as const
 
-export const foodLogs = sqliteTable("foodLog", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  userId: text("userId")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  foodId: text("foodId")
-    .notNull()
-    .references(() => foods.id),
-  datetime: integer("datetime", { mode: "timestamp" })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  quantityG: real("quantityG").notNull(),
-  // Calories/macros are snapshotted here at log time, not recomputed from
-  // foods + quantity on read. If a food's nutrition data is later corrected,
-  // past log entries should keep reflecting what the user was told they ate.
-  calories: real("calories").notNull(),
-  protein: real("protein").notNull(),
-  carbs: real("carbs").notNull(),
-  fat: real("fat").notNull(),
-  // Extended nutrition, same snapshot rule as above - optional because the
-  // source food may not have this data (manual entries, or OFF products
-  // missing a field), not because it's optional to track once known.
-  saturatedFat: real("saturatedFat"),
-  fiber: real("fiber"),
-  sugars: real("sugars"),
-  sodium: real("sodium"), // grams
-  source: text("source", { enum: logSource }).notNull(),
-})
+export const foodLogs = sqliteTable(
+  "foodLog",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    foodId: text("foodId")
+      .notNull()
+      .references(() => foods.id),
+    datetime: integer("datetime", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    quantityG: real("quantityG").notNull(),
+    // Calories/macros are snapshotted here at log time, not recomputed from
+    // foods + quantity on read. If a food's nutrition data is later corrected,
+    // past log entries should keep reflecting what the user was told they ate.
+    calories: real("calories").notNull(),
+    protein: real("protein").notNull(),
+    carbs: real("carbs").notNull(),
+    fat: real("fat").notNull(),
+    // Extended nutrition, same snapshot rule as above - optional because the
+    // source food may not have this data (manual entries, or OFF products
+    // missing a field), not because it's optional to track once known.
+    saturatedFat: real("saturatedFat"),
+    fiber: real("fiber"),
+    sugars: real("sugars"),
+    sodium: real("sodium"), // grams
+    source: text("source", { enum: logSource }).notNull(),
+  },
+  // Every dashboard/history/timeline/macros query filters by userId and a
+  // datetime range - without this, D1/SQLite full-scans the whole log table
+  // (which only ever grows) on every page load.
+  (foodLog) => [index("foodLog_userId_datetime_idx").on(foodLog.userId, foodLog.datetime)]
+)
 
 // Phase 5: weight tracking (schematic.md) — pulled forward for profile
 // setup's first weight entry (design_handoff_macrograin screen 2).
@@ -285,36 +298,44 @@ export const weeklyTargetUpdates = sqliteTable(
 
 export const aiScanKind = ["photo", "label"] as const
 
-export const aiUsageLogs = sqliteTable("aiUsageLog", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  userId: text("userId")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  kind: text("kind", { enum: aiScanKind }).notNull(),
-  createdAt: integer("createdAt", { mode: "timestamp" })
-    .notNull()
-    .$defaultFn(() => new Date()),
-})
+export const aiUsageLogs = sqliteTable(
+  "aiUsageLog",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: aiScanKind }).notNull(),
+    createdAt: integer("createdAt", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (aiUsageLog) => [index("aiUsageLog_userId_createdAt_idx").on(aiUsageLog.userId, aiUsageLog.createdAt)]
+)
 
 // Water intake tracking - requested alongside the settings rebuild as
 // "important part of fat loss". Logged as discrete add events (like
 // foodLogs) rather than one running daily total row, so the dashboard can
 // show a timeline of when water was drunk, matching the foodLogs pattern.
 
-export const waterLogs = sqliteTable("waterLog", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  userId: text("userId")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  amountMl: integer("amountMl").notNull(),
-  datetime: integer("datetime", { mode: "timestamp" })
-    .notNull()
-    .$defaultFn(() => new Date()),
-})
+export const waterLogs = sqliteTable(
+  "waterLog",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    amountMl: integer("amountMl").notNull(),
+    datetime: integer("datetime", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (waterLog) => [index("waterLog_userId_datetime_idx").on(waterLog.userId, waterLog.datetime)]
+)
 
 // One row per browser subscribed to Web Push notifications.
 export const pushSubscriptions = sqliteTable("pushSubscription", {

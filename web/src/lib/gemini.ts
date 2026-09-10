@@ -1,8 +1,9 @@
 import "server-only"
 
-// gemini-3.6-flash confirmed free at aistudio.google.com/rate-limit - if it
-// stops being free, check that page for whichever flash model currently is.
-const GEMINI_MODEL = "gemini-3.6-flash"
+// gemini-3.5-flash-lite - lighter/faster than 3.6-flash, cutting AI scan
+// latency; confirm at aistudio.google.com/rate-limit if pricing/free-tier
+// status ever needs rechecking.
+const GEMINI_MODEL = "gemini-3.5-flash-lite"
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
 
 type GeminiPart =
@@ -31,6 +32,10 @@ async function callGemini(
         responseSchema,
       },
     }),
+    // Without this, a hung Gemini request runs until Vercel's own function
+    // timeout kills it, leaving the user staring at an indefinite "Analyzing
+    // meal..." spinner with no clear error.
+    signal: AbortSignal.timeout(20_000),
   })
 
   if (!res.ok) {

@@ -13,7 +13,14 @@ export async function POST(request: NextRequest) {
   }
 
   const timezone = await getTimezone()
-  const usage = await checkAndRecordAiUsage(session.user.id, "label", timezone)
+  // Parsing the multipart body doesn't depend on the usage-limit check (a
+  // D1 round-trip) or vice versa - overlapping them instead of awaiting
+  // one after the other shaves a full D1 hop off the critical path before
+  // the Gemini call even starts.
+  const [usage, formData] = await Promise.all([
+    checkAndRecordAiUsage(session.user.id, "label", timezone),
+    request.formData(),
+  ])
   if (!usage.allowed) {
     return Response.json(
       {
@@ -25,7 +32,6 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const formData = await request.formData()
   const file = formData.get("photo")
   if (!(file instanceof File)) {
     return Response.json({ error: "Missing photo" }, { status: 400 })
