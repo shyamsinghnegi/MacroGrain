@@ -24,23 +24,38 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
   const previousPathname = useRef(pathname)
 
   useLayoutEffect(() => {
-    if (previousPathname.current === pathname) return
+    const previous = previousPathname.current
     previousPathname.current = pathname
+    if (previous === pathname) return
 
     const el = containerRef.current
     if (!el) return
+
+   
+    if (previous === "/scan" || pathname === "/scan") return
 
     const mm = gsap.matchMedia()
     mm.add("(prefers-reduced-motion: no-preference)", () => {
       gsap.fromTo(
         el,
         { autoAlpha: 0, x: 28 },
-        { autoAlpha: 1, x: 0, duration: 0.32, ease: "power3.out" }
+        {
+          autoAlpha: 1,
+          x: 0,
+          duration: 0.32,
+          ease: "power3.out",
+          
+          clearProps: "transform",
+        }
       )
     })
 
     return () => mm.revert()
   }, [pathname])
 
-  return <div ref={containerRef}>{children}</div>
+  return (
+    <div className="overflow-x-clip">
+      <div ref={containerRef}>{children}</div>
+    </div>
+  )
 }
