@@ -95,8 +95,8 @@ export const goal = ["cut", "maintain", "bulk"] as const
 // letting a user pick an arbitrary color that turns out illegible against
 // one of the two backgrounds.
 export const themeMode = ["dark", "light"] as const
-export const accentColor = ["lime", "blue", "pink", "orange"] as const
-export const fontStyle = ["default", "mono", "classic", "cyberpunk"] as const
+export const accentColor = ["lime", "blue", "pink", "orange", "purple", "gold", "crimson", "teal"] as const
+export const fontStyle = ["default", "mono", "classic", "cyberpunk", "majestic", "elegant"] as const
 // Named full palettes (background + card + text + accent together, not
 // just an accent swap over the plain dark/light base) - see globals.css's
 // [data-palette=...] blocks for the actual hex values. "none" means "use
@@ -111,6 +111,8 @@ export const themePreset = [
   "old_money",
   "blue_fantastic",
   "kombu",
+  "monochrome",
+  "clean_light",
 ] as const
 
 export const unitSystem = ["metric", "imperial"] as const
@@ -296,7 +298,7 @@ export const weeklyTargetUpdates = sqliteTable(
   (weeklyTargetUpdate) => [unique().on(weeklyTargetUpdate.userId, weeklyTargetUpdate.weekStart)]
 )
 
-export const aiScanKind = ["photo", "label"] as const
+export const aiScanKind = ["photo", "label", "text"] as const
 
 export const aiUsageLogs = sqliteTable(
   "aiUsageLog",

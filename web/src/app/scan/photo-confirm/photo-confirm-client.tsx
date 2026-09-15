@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
-import { useActionState } from "react"
+import { Suspense, useState, useActionState } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { createAiFoodAndLog } from "@/app/log/actions"
 import { FieldError } from "@/components/input"
 import { Button } from "@/components/button"
@@ -21,7 +21,18 @@ function readStashedResult(): FoodPhotoResult | "invalid" {
 }
 
 export function PhotoConfirmClient() {
+  return (
+    <Suspense fallback={null}>
+      <PhotoConfirmContent />
+    </Suspense>
+  )
+}
+
+function PhotoConfirmContent() {
   const [result] = useState<FoodPhotoResult | "invalid">(readStashedResult)
+  const searchParams = useSearchParams()
+  const returnTo = searchParams.get("returnTo") || "/scan"
+  const type = searchParams.get("type") || "photo"
 
   if (result === "invalid") {
     return (
@@ -30,17 +41,17 @@ export function PhotoConfirmClient() {
         <p className="text-sm text-text-muted">
           Start a new scan to estimate a meal from a photo.
         </p>
-        <Link href="/scan" className="rounded-pill bg-text px-5 py-2 text-sm font-medium text-bg">
+        <Link href={returnTo} className="rounded-pill bg-text px-5 py-2 text-sm font-medium text-bg">
           Back to scan
         </Link>
       </div>
     )
   }
 
-  return <ConfirmForm estimate={result} />
+  return <ConfirmForm estimate={result} returnTo={returnTo} type={type} />
 }
 
-function ConfirmForm({ estimate }: { estimate: FoodPhotoResult }) {
+function ConfirmForm({ estimate, returnTo, type }: { estimate: FoodPhotoResult; returnTo: string; type: string }) {
   const [state, formAction, pending] = useActionState(createAiFoodAndLog, undefined)
   const [portion, setPortion] = useState(() => {
     const match = estimate.portionDescription.match(/(\d+)\s*g/i)
@@ -54,11 +65,11 @@ function ConfirmForm({ estimate }: { estimate: FoodPhotoResult }) {
   return (
     <div className="mx-auto flex w-full flex-col gap-5 px-4 sm:px-6 pt-16 pb-28 sm:max-w-xl">
       <div className="flex items-center justify-between">
-        <Link href="/scan" className="font-mono text-lg text-text-muted">
+        <Link href={returnTo} className="font-mono text-lg text-text-muted">
           ←
         </Link>
         <p className="text-base font-semibold text-text">Confirm entry</p>
-        <SourceBadge source="ai_photo" />
+        <SourceBadge source={type === "text" ? "ai_text" : "ai_photo"} />
       </div>
 
       <div className="flex items-center gap-3.5">
@@ -66,7 +77,7 @@ function ConfirmForm({ estimate }: { estimate: FoodPhotoResult }) {
         <div className="min-w-0 flex-1">
           <p className="truncate text-lg font-semibold text-text">{estimate.name}</p>
           <p className="text-sm text-text-muted">
-            estimated from photo · {estimate.portionDescription}
+            estimated from {type === "text" ? "text" : "photo"} · {estimate.portionDescription}
           </p>
         </div>
       </div>
@@ -179,7 +190,7 @@ function ConfirmForm({ estimate }: { estimate: FoodPhotoResult }) {
 
         <div className="flex gap-3">
           <Link
-            href="/scan"
+            href={returnTo}
             className="flex-1 rounded-pill border-[1.5px] border-hairline py-4 text-center text-sm font-semibold text-text"
           >
             Discard

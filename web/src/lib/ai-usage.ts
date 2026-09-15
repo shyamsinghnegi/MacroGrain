@@ -1,6 +1,6 @@
 import "server-only"
 import { db } from "@/db"
-import { aiUsageLogs } from "@/db/schema"
+import { aiUsageLogs, aiScanKind } from "@/db/schema"
 import { and, eq, gte, count } from "drizzle-orm"
 import { dayBounds } from "@/lib/dates"
 
@@ -8,7 +8,7 @@ const DAILY_LIMIT = 50
 
 export async function checkAndRecordAiUsage(
   userId: string,
-  kind: "photo" | "label",
+  kind: (typeof aiScanKind)[number],
   timezone: string
 ): Promise<{ allowed: true } | { allowed: false; usedToday: number }> {
   const { startOfDay } = dayBounds(new Date(), timezone)

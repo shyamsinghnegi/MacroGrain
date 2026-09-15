@@ -23,6 +23,8 @@ export function ScanClient() {
   const [capturing, setCapturing] = useState(false)
   const [capturingKind, setCapturingKind] = useState<"photo" | "label" | null>(null)
   const [capturedPreview, setCapturedPreview] = useState<string | null>(null)
+  const [pendingPhoto, setPendingPhoto] = useState<{ kind: "photo"; blob: Blob } | null>(null)
+  const [hintText, setHintText] = useState("")
   const [torchSupported, setTorchSupported] = useState(false)
   const [torchOn, setTorchOn] = useState(false)
   const [tapFocusSupported, setTapFocusSupported] = useState(false)
@@ -228,13 +230,15 @@ export function ScanClient() {
   function clearCapturingOverlay() {
     setCapturing(false)
     setCapturingKind(null)
+    setPendingPhoto(null)
+    setHintText("")
     setCapturedPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev)
       return null
     })
   }
 
-  async function analyzePhoto(kind: "photo" | "label", blob: Blob) {
+  async function analyzePhoto(kind: "photo" | "label", blob: Blob, hint?: string) {
     setCapturing(true)
     setCapturingKind(kind)
     const previewUrl = URL.createObjectURL(blob)
@@ -242,6 +246,9 @@ export function ScanClient() {
     try {
       const formData = new FormData()
       formData.set("photo", blob, "capture.jpg")
+      if (hint && hint.trim().length > 0) {
+        formData.set("hint", hint.trim())
+      }
 
       const endpoint = kind === "photo" ? "/api/scan/photo" : "/api/scan/label"
       const res = await fetch(endpoint, { method: "POST", body: formData })
@@ -302,7 +309,13 @@ export function ScanClient() {
       return
     }
 
-    analyzePhoto(kind, blob)
+    if (kind === "photo") {
+      const previewUrl = URL.createObjectURL(blob)
+      setCapturedPreview(previewUrl)
+      setPendingPhoto({ kind, blob })
+    } else {
+      analyzePhoto(kind, blob)
+    }
   }
 
   function pickFromGallery(kind: "photo" | "label") {
@@ -334,7 +347,14 @@ export function ScanClient() {
     e.target.value = "" // allow re-picking the same file later
     if (!file || capturing) return
     const resized = await downscaleImage(file).catch(() => file)
-    analyzePhoto(galleryKindRef.current, resized)
+    
+    if (galleryKindRef.current === "photo") {
+      const previewUrl = URL.createObjectURL(resized)
+      setCapturedPreview(previewUrl)
+      setPendingPhoto({ kind: "photo", blob: resized })
+    } else {
+      analyzePhoto(galleryKindRef.current, resized)
+    }
   }
 
   return (
@@ -369,7 +389,7 @@ export function ScanClient() {
       <div className="absolute top-0 right-0 left-0 z-20 flex items-center justify-between px-6 pt-16">
         <Link
           href="/"
-          className="flex size-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-md"
+          className="flex size-11 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-md"
           aria-label="Close"
         >
           <X size={18} />
@@ -400,14 +420,14 @@ export function ScanClient() {
             onClick={toggleTorch}
             aria-label={torchOn ? "Turn off flash" : "Turn on flash"}
             aria-pressed={torchOn}
-            className={`flex size-9 items-center justify-center rounded-full backdrop-blur-md transition-colors ${
+            className={`flex size-11 items-center justify-center rounded-full backdrop-blur-md transition-colors ${
               torchOn ? "bg-accent text-bg" : "bg-black/50 text-white"
             }`}
           >
             <Zap size={15} />
           </button>
         ) : (
-          <span className="size-9" />
+          <span className="size-11" />
         )}
       </div>
 
@@ -522,6 +542,50 @@ export function ScanClient() {
             <span className="font-mono text-[11px] text-text-faint">
               This can take a few seconds
             </span>
+          </div>
+        </div>
+      )}
+
+      {pendingPhoto && !capturing && (
+        <div className="absolute inset-0 z-30 flex flex-col bg-bg-deep">
+          {capturedPreview && (
+            <img
+              src={capturedPreview}
+              alt=""
+              className="absolute inset-0 size-full object-cover opacity-60"
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-bg-deep via-bg-deep/80 to-transparent" />
+          
+          <div className="relative z-10 flex flex-1 flex-col justify-end gap-6 px-6 pb-12">
+            <div className="flex flex-col gap-2">
+              <label htmlFor="hint-input" className="font-mono text-[11px] font-medium tracking-wide text-white/80 uppercase">
+                Add context (optional)
+              </label>
+              <textarea
+                id="hint-input"
+                value={hintText}
+                onChange={(e) => setHintText(e.target.value)}
+                placeholder="E.g. cooked in 1 tbsp ghee, 2 cups of rice..."
+                className="h-24 w-full resize-none rounded-2xl bg-white/10 p-4 text-sm text-white placeholder-white/40 shadow-inner backdrop-blur-md outline-none focus:bg-white/15 focus:ring-1 focus:ring-accent"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={clearCapturingOverlay}
+                className="flex-1 rounded-pill border border-white/20 bg-white/5 py-3.5 text-sm font-medium text-white backdrop-blur-md transition-colors hover:bg-white/10"
+              >
+                Retake
+              </button>
+              <button
+                type="button"
+                onClick={() => analyzePhoto("photo", pendingPhoto.blob, hintText)}
+                className="flex-1 rounded-pill bg-accent py-3.5 text-sm font-bold text-bg shadow-accent-glow"
+              >
+                Analyze
+              </button>
+            </div>
           </div>
         </div>
       )}

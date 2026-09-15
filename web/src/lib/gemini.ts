@@ -35,7 +35,7 @@ async function callGemini(
     // Without this, a hung Gemini request runs until Vercel's own function
     // timeout kills it, leaving the user staring at an indefinite "Analyzing
     // meal..." spinner with no clear error.
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(45_000),
   })
 
   if (!res.ok) {
@@ -99,13 +99,40 @@ Always return your best estimate even if uncertain - never refuse to answer.`
 
 export async function estimateFoodFromPhoto(
   imageBase64: string,
-  mimeType: string
+  mimeType: string,
+  hint?: string
 ): Promise<FoodPhotoResult> {
+  const prompt = hint
+    ? `${FOOD_PHOTO_PROMPT}\n\nUser provided context: "${hint}"`
+    : FOOD_PHOTO_PROMPT
+
   const result = await callGemini(
     [
-      { text: FOOD_PHOTO_PROMPT },
+      { text: prompt },
       { inline_data: { mime_type: mimeType, data: imageBase64 } },
     ],
+    FOOD_PHOTO_SCHEMA
+  )
+  return result as FoodPhotoResult
+}
+
+const FOOD_TEXT_PROMPT = `You are a nutrition estimation assistant. A user has provided a text description of a meal or ingredient. Estimate what the food is, the portion size, and its nutrition.
+If no quantity is specified, assume 1 standard serving (e.g. 1 cup, 1 medium piece).
+
+Respond with:
+- name: a short, specific dish name
+- portionDescription: your best guess at the portion described or assumed
+- caloriesEstimate, proteinEstimate (g), carbsEstimate (g), fatEstimate (g): your best numeric estimates for the portion
+- confidence: "high" if it's a standard known food/recipe, "low" if it's vague.
+- notes: a short explanation of what's uncertain, or null if confidence is high
+
+Always return your best estimate even if uncertain - never refuse to answer.`
+
+export async function estimateFoodFromText(
+  description: string
+): Promise<FoodPhotoResult> {
+  const result = await callGemini(
+    [{ text: `${FOOD_TEXT_PROMPT}\n\nUser description: "${description}"` }],
     FOOD_PHOTO_SCHEMA
   )
   return result as FoodPhotoResult

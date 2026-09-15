@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
+import { Sparkles } from "lucide-react"
 import { NewFoodForm } from "./new-food-form"
 import { Input } from "@/components/input"
 import { buttonClass } from "@/components/button"
@@ -131,7 +132,7 @@ export function FoodSearch({
     const timeout = setTimeout(() => {
       setSearching(true)
       runSearch(query.trim(), 0)
-    }, 300)
+    }, 600)
     return () => clearTimeout(timeout)
   }, [query, runSearch])
 
@@ -235,6 +236,16 @@ export function FoodSearch({
         >
           {loadingMore ? "Loading…" : "See more results"}
         </button>
+      )}
+
+      {query.trim().length > 0 && (
+        <Link
+          href={`/log/ai-text?q=${encodeURIComponent(query.trim())}`}
+          className="flex w-full items-center justify-center gap-2 rounded-pill border border-accent/30 bg-accent/10 py-3.5 text-sm font-medium text-accent transition-colors hover:bg-accent/20"
+        >
+          <Sparkles size={16} />
+          <span>Not found? Get AI Estimate for &quot;{query.trim()}&quot;</span>
+        </Link>
       )}
 
       <button

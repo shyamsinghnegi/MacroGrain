@@ -42,9 +42,10 @@ export async function POST(request: NextRequest) {
 
   const buffer = await file.arrayBuffer()
   const base64 = Buffer.from(buffer).toString("base64")
+  const hint = formData.get("hint")?.toString() || undefined
 
   try {
-    const result = await estimateFoodFromPhoto(base64, file.type || "image/jpeg")
+    const result = await estimateFoodFromPhoto(base64, file.type || "image/jpeg", hint)
     return Response.json(result)
   } catch (e) {
     console.error("AI photo scan failed:", e)
