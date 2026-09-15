@@ -40,13 +40,17 @@ function needsIosInstall(): boolean {
 }
 
 export function RemindersToggle({ enabled }: { enabled: boolean }) {
-  const [permission, setPermission] = useState<PermissionState>(readPermission)
-  const [iosNeedsInstall] = useState(needsIosInstall)
+  const [permission, setPermission] = useState<PermissionState>("unsupported")
+  const [iosNeedsInstallState, setIosNeedsInstallState] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const [subStatus, setSubStatus] = useState<SubStatus>("unknown")
   const [subscribing, setSubscribing] = useState(false)
   const [subscribeError, setSubscribeError] = useState<string | null>(null)
 
   useEffect(() => {
+    setPermission(readPermission())
+    setIosNeedsInstallState(needsIosInstall())
+    setMounted(true)
     checkSubscribed().then((subscribed) => setSubStatus(subscribed ? "subscribed" : "not-subscribed"))
   }, [])
 
@@ -99,7 +103,7 @@ export function RemindersToggle({ enabled }: { enabled: boolean }) {
         even if the app is closed, once notifications are allowed below.
       </p>
 
-      {enabled && iosNeedsInstall && (
+      {mounted && enabled && iosNeedsInstallState && (
         <p className="text-xs text-warning">
           On iPhone, push notifications only work after adding Macrograin to
           your Home Screen: tap Share, then &quot;Add to Home Screen,&quot; then
@@ -107,7 +111,7 @@ export function RemindersToggle({ enabled }: { enabled: boolean }) {
         </p>
       )}
 
-      {enabled && !iosNeedsInstall && permission === "denied" && (
+      {mounted && enabled && !iosNeedsInstallState && permission === "denied" && (
         <p className="text-xs text-warning">
           Browser notifications are blocked, so this won&apos;t actually notify
           you. Allow notifications for this site in your browser settings to
@@ -115,14 +119,14 @@ export function RemindersToggle({ enabled }: { enabled: boolean }) {
         </p>
       )}
 
-      {enabled && !iosNeedsInstall && permission === "unsupported" && (
+      {mounted && enabled && !iosNeedsInstallState && permission === "unsupported" && (
         <p className="text-xs text-warning">
           This browser doesn&apos;t support notifications.
         </p>
       )}
 
-      {enabled &&
-        !iosNeedsInstall &&
+      {mounted && enabled &&
+        !iosNeedsInstallState &&
         permission !== "denied" &&
         permission !== "unsupported" &&
         subStatus === "not-subscribed" && (

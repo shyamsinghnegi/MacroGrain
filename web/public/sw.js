@@ -28,3 +28,33 @@ self.addEventListener("notificationclick", (event) => {
     })
   )
 })
+
+const CACHE_NAME = "macrograin-cache-v1"
+
+self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url)
+  if (
+    event.request.method === "GET" &&
+    (url.pathname.startsWith("/_next/image") ||
+      url.pathname.startsWith("/_next/static") ||
+      url.pathname.match(/\.(png|jpg|jpeg|svg|webp|ico)$/))
+  ) {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        const fetchPromise = fetch(event.request)
+          .then((networkResponse) => {
+            if (networkResponse.ok) {
+              const clone = networkResponse.clone()
+              caches.open(CACHE_NAME).then((cache) => {
+                cache.put(event.request, clone)
+              })
+            }
+            return networkResponse
+          })
+          .catch(() => null)
+
+        return cachedResponse || fetchPromise
+      })
+    )
+  }
+})

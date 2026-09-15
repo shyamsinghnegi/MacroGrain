@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { auth, signIn } from "@/auth"
 import { db } from "@/db"
 import { foodLogs, profiles, weightLogs } from "@/db/schema"
@@ -61,7 +62,7 @@ export default async function Home({
   // of overlapping. Running them concurrently cuts this page's D1 wait
   // time roughly 4x (confirmed the page issues exactly these 4 queries
   // plus the profile lookup already done above).
-  const [todayTotalsResult, latestWeight, rangeRows, waterConsumedMl] = await Promise.all([
+  const [todayTotalsResult, latestWeight, waterConsumedMl] = await Promise.all([
     db
       .select({
         calories: sum(foodLogs.calories),
@@ -81,19 +82,6 @@ export default async function Home({
       where: eq(weightLogs.userId, session.user.id),
       orderBy: desc(weightLogs.date),
     }),
-    db
-      .select({
-        calories: foodLogs.calories,
-        datetime: foodLogs.datetime,
-      })
-      .from(foodLogs)
-      .where(
-        and(
-          eq(foodLogs.userId, session.user.id),
-          gte(foodLogs.datetime, rangeStart),
-          lt(foodLogs.datetime, startOfNextDay)
-        )
-      ),
     todayWaterTotal(session.user.id, startOfDay, startOfNextDay),
   ])
   const todayTotals = todayTotalsResult[0]
@@ -127,22 +115,7 @@ export default async function Home({
     .toUpperCase()
     .replace(",", " ·")
 
-  // Weekly/monthly calorie chart: sum per-day totals across the range,
-  // including days with zero logged calories so the chart shows real gaps.
-  // Fetches individual log rows (not a SQL sum()) and groups by day in JS -
-  // selecting sum(calories) alongside a non-aggregated, non-grouped-by
-  // `datetime` column previously returned exactly one collapsed row for the
-  // whole range with datetime as null, since there was no GROUP BY at all.
-  const caloriesByDate = new Map<string, number>()
-  for (const row of rangeRows) {
-    const key = toDateParam(row.datetime, tz)
-    caloriesByDate.set(key, (caloriesByDate.get(key) ?? 0) + row.calories)
-  }
-  const chartDays = Array.from({ length: rangeDays }, (_, i) => {
-    const date = new Date(rangeStart.getTime() + i * 86_400_000)
-    const key = toDateParam(date, tz)
-    return { date: key, calories: caloriesByDate.get(key) ?? 0 }
-  })
+  // (Moved into AsyncCalorieChart)
 
   return (
     <div className="relative mx-auto flex min-h-screen w-full flex-col gap-8 overflow-hidden pt-16 pb-36 sm:max-w-xl">
@@ -155,7 +128,7 @@ export default async function Home({
         </div>
         <Link
           href="/settings"
-          className="flex size-9 items-center justify-center rounded-input border border-hairline bg-card text-text-muted"
+          className="flex size-11 items-center justify-center rounded-input border border-hairline bg-card text-text-muted"
           aria-label="Settings"
         >
           <Settings size={16} />
@@ -214,7 +187,16 @@ export default async function Home({
           </div>
         </div>
         <div className="mt-3">
-          <CalorieChart days={chartDays} target={target} />
+          <Suspense fallback={<div className="h-32 w-full animate-pulse rounded-md bg-white/5" />}>
+            <AsyncCalorieChart
+              userId={session.user.id}
+              rangeStart={rangeStart}
+              startOfNextDay={startOfNextDay}
+              rangeDays={rangeDays}
+              tz={tz}
+              target={target}
+            />
+          </Suspense>
         </div>
       </div>
 
@@ -278,3 +260,48 @@ export default async function Home({
     </div>
   )
 }
+
+async function AsyncCalorieChart({
+  userId,
+  rangeStart,
+  startOfNextDay,
+  rangeDays,
+  tz,
+  target,
+}: {
+  userId: string
+  rangeStart: Date
+  startOfNextDay: Date
+  rangeDays: number
+  tz: string
+  target: number
+}) {
+  const rangeRows = await db
+    .select({
+      calories: foodLogs.calories,
+      datetime: foodLogs.datetime,
+    })
+    .from(foodLogs)
+    .where(
+      and(
+        eq(foodLogs.userId, userId),
+        gte(foodLogs.datetime, rangeStart),
+        lt(foodLogs.datetime, startOfNextDay)
+      )
+    )
+
+  const caloriesByDate = new Map<string, number>()
+  for (const row of rangeRows) {
+    const key = toDateParam(row.datetime, tz)
+    caloriesByDate.set(key, (caloriesByDate.get(key) ?? 0) + row.calories)
+  }
+  
+  const chartDays = Array.from({ length: rangeDays }, (_, i) => {
+    const date = new Date(rangeStart.getTime() + i * 86_400_000)
+    const key = toDateParam(date, tz)
+    return { date: key, calories: caloriesByDate.get(key) ?? 0 }
+  })
+
+  return <CalorieChart days={chartDays} target={target} />
+}
+

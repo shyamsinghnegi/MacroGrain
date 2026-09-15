@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, useOptimistic } from "react"
 import Link from "next/link"
 import { Droplet, ChevronRight } from "lucide-react"
 import { addWater } from "@/app/water/actions"
@@ -17,10 +17,16 @@ export function WaterWidget({
   const [showCustom, setShowCustom] = useState(false)
   const [customAmount, setCustomAmount] = useState("")
 
+  const [optimisticConsumedMl, addOptimisticConsumedMl] = useOptimistic(
+    consumedMl,
+    (state, amount: number) => state + amount
+  )
+
   function logAmount(amountMl: number) {
     const formData = new FormData()
     formData.set("amountMl", String(amountMl))
     startTransition(async () => {
+      addOptimisticConsumedMl(amountMl)
       await addWater(formData)
     })
   }
@@ -33,7 +39,7 @@ export function WaterWidget({
     setShowCustom(false)
   }
 
-  const filled = Math.round(Math.min(1, consumedMl / goalMl) * 20)
+  const filled = Math.round(Math.min(1, optimisticConsumedMl / goalMl) * 20)
 
   return (
     <div className="rounded-card bg-card p-4 shadow-card">
@@ -44,12 +50,12 @@ export function WaterWidget({
         </p>
         <div className="flex items-center gap-1">
           <p className="font-mono text-sm text-text">
-            {(consumedMl / 1000).toFixed(1)} / {(goalMl / 1000).toFixed(1)} L
+            {(optimisticConsumedMl / 1000).toFixed(1)} / {(goalMl / 1000).toFixed(1)} L
           </p>
           <Link
             href="/timeline"
             aria-label="Edit logged water"
-            className="flex size-5 items-center justify-center text-text-faint"
+            className="flex size-7 items-center justify-center text-text-faint transition-colors hover:text-text-muted"
           >
             <ChevronRight size={14} />
           </Link>
@@ -77,7 +83,7 @@ export function WaterWidget({
                 setCustomAmount("")
               }
             }}
-            className="min-w-0 flex-1 rounded-pill border border-hairline bg-surface px-3 py-2 font-mono text-xs text-text outline-none"
+            className="min-w-0 flex-1 rounded-pill border border-hairline bg-surface px-3 py-2 font-mono text-xs text-text outline-none focus-visible:outline-2 focus-visible:outline-accent"
           />
           <button
             type="button"
@@ -93,7 +99,7 @@ export function WaterWidget({
               setShowCustom(false)
               setCustomAmount("")
             }}
-            className="rounded-pill border border-hairline px-3 py-2 font-mono text-xs text-text-muted"
+            className="rounded-pill border border-hairline px-3 py-2 font-mono text-xs text-text-muted transition-colors hover:bg-card-alt"
           >
             Cancel
           </button>
@@ -104,7 +110,7 @@ export function WaterWidget({
             type="button"
             disabled={pending}
             onClick={() => logAmount(250)}
-            className="flex-1 rounded-pill border border-hairline bg-surface py-2 font-mono text-xs text-text-muted transition-all duration-150 active:scale-95 disabled:opacity-50"
+            className="flex-1 rounded-pill border border-hairline bg-surface py-2.5 font-mono text-xs text-text transition-all duration-150 hover:bg-card-alt active:scale-95 disabled:opacity-50"
           >
             +250 ml
           </button>
@@ -112,7 +118,7 @@ export function WaterWidget({
             type="button"
             disabled={pending}
             onClick={() => setShowCustom(true)}
-            className="flex-1 rounded-pill border border-hairline bg-surface py-2 font-mono text-xs text-text-muted transition-all duration-150 active:scale-95 disabled:opacity-50"
+            className="flex-1 rounded-pill border border-hairline bg-surface py-2.5 font-mono text-xs text-text transition-all duration-150 hover:bg-card-alt active:scale-95 disabled:opacity-50"
           >
             Custom
           </button>
