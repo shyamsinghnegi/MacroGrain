@@ -22,6 +22,10 @@ const accents: { value: Accent; label: string; swatch: string }[] = [
   { value: "blue", label: "Blue", swatch: "#4d9dff" },
   { value: "pink", label: "Pink", swatch: "#ff6fb0" },
   { value: "orange", label: "Orange", swatch: "#ff9a4d" },
+  { value: "purple", label: "Purple", swatch: "#b272f2" },
+  { value: "gold", label: "Gold", swatch: "#f2c24d" },
+  { value: "crimson", label: "Crimson", swatch: "#f24d4d" },
+  { value: "teal", label: "Teal", swatch: "#4df2d6" },
 ]
 
 // Named full palettes - each overrides background/card/text/accent
@@ -33,6 +37,8 @@ const accents: { value: Accent; label: string; swatch: string }[] = [
 // returns control to those two pickers.
 const palettes: { value: Palette; label: string; bg: string; card: string; accent: string }[] = [
   { value: "none", label: "None", bg: "", card: "", accent: "" },
+  { value: "clean_light", label: "Clean Light", bg: "#ffffff", card: "#fafafa", accent: "#000000" },
+  { value: "monochrome", label: "Monochrome", bg: "#000000", card: "#0a0a0a", accent: "#ffffff" },
   { value: "old_money", label: "Old Money", bg: "#100e0d", card: "#161413", accent: "#de5c5c" },
   { value: "blue_fantastic", label: "Blue Fantastic", bg: "#10151f", card: "#161d29", accent: "#ff9a4d" },
   { value: "kombu", label: "Kombu", bg: "#0e130a", card: "#141b10", accent: "#a3ad78" },
@@ -43,6 +49,8 @@ const fonts: { value: Font; label: string; description: string }[] = [
   { value: "mono", label: "Mono", description: "Monospace throughout, Doto numerals only" },
   { value: "classic", label: "Classic", description: "Sans-serif everywhere, no dot-matrix numerals" },
   { value: "cyberpunk", label: "Cyberpunk", description: "Orbitron numerals, Rajdhani data & body" },
+  { value: "majestic", label: "Majestic", description: "Playfair Display hero, Lora data & body" },
+  { value: "elegant", label: "Elegant", description: "Cormorant Garamond throughout" },
 ]
 
 // Applies the pick directly to the live document so the picker previews
@@ -52,11 +60,10 @@ const fonts: { value: Font; label: string; description: string }[] = [
 // form, so navigating away without saving leaves the real setting
 // unchanged (a page refresh reverts the live preview to what's actually saved).
 function applyPreview(theme: Theme, accentColor: Accent, fontStyle: Font, palette: Palette) {
-  // Palettes are all dark - force data-theme so the light-mode shadow
-  // overrides in globals.css don't fight a palette's own dark colors,
-  // matching the same rule layout.tsx applies server-side.
-  document.documentElement.setAttribute("data-theme", palette === "none" ? theme : "dark")
-  document.documentElement.setAttribute("data-accent", accentColor)
+  // Match the same logic used in layout.tsx to prevent light-mode overrides
+  // from ruining dark palettes (and vice versa).
+  document.documentElement.setAttribute("data-theme", palette === "none" ? theme : (palette.includes("light") ? "light" : "dark"))
+  document.documentElement.setAttribute("data-accent", palette === "none" ? accentColor : "palette")
   document.documentElement.setAttribute("data-palette", palette)
   document.body.setAttribute("data-font", fontStyle)
 }
@@ -92,7 +99,7 @@ export function AppearanceForm({
         <p className="text-lg font-semibold text-text">Appearance</p>
       </div>
 
-      <form action={saveAppearance} className="flex flex-col gap-6">
+      <form action={saveAppearance} className="flex flex-col gap-10">
         <input type="hidden" name="theme" value={theme} />
         <input type="hidden" name="accentColor" value={accent} />
         <input type="hidden" name="fontStyle" value={font} />
@@ -102,7 +109,7 @@ export function AppearanceForm({
           <p className="label-mono font-doto text-[10px] tracking-[0.18em] text-text-faint uppercase">
             Palette
           </p>
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {palettes.map((p) => {
               const active = palette === p.value
               return (

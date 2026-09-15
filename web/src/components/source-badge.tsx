@@ -3,12 +3,14 @@
 const styles = {
   barcode: "bg-card-alt text-text-muted",
   ai_photo: "bg-accent/12 text-accent",
+  ai_text: "bg-accent/12 text-accent",
   manual: "border-[1.5px] border-hairline text-text",
 } as const
 
 const labels = {
   barcode: "SCAN",
   ai_photo: "AI PHOTO",
+  ai_text: "AI TEXT",
   manual: "MANUAL",
 } as const
 

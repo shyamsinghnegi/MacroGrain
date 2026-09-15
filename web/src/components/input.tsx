@@ -1,4 +1,4 @@
-import { InputHTMLAttributes, SelectHTMLAttributes } from "react"
+import { InputHTMLAttributes, SelectHTMLAttributes, useId } from "react"
 
 // Inset/pressed inputs — see design_handoff_macrograin/README.md "Elevation"
 const inputClass =
@@ -35,7 +35,34 @@ export function Label({
   )
 }
 
-export function FieldError({ message }: { message?: string }) {
+export function FieldError({ message, id }: { message?: string; id?: string }) {
   if (!message) return null
-  return <p className="text-sm text-warning">{message}</p>
+  return <p id={id} className="text-sm text-warning">{message}</p>
+}
+
+export function InputGroup({
+  label,
+  error,
+  children,
+  className = "",
+}: {
+  label: string
+  error?: string
+  children: (props: { id: string; "aria-describedby"?: string; "aria-invalid"?: boolean }) => React.ReactNode
+  className?: string
+}) {
+  const id = useId()
+  const errorId = error ? `${id}-error` : undefined
+  
+  return (
+    <div className={`flex flex-col gap-1.5 ${className}`}>
+      <Label htmlFor={id}>{label}</Label>
+      {children({ 
+        id, 
+        "aria-describedby": errorId,
+        "aria-invalid": !!error
+      })}
+      <FieldError id={errorId} message={error} />
+    </div>
+  )
 }

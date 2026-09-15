@@ -122,7 +122,9 @@ export default async function SettingsPage() {
               Appearance
             </span>
             <span className="flex items-center gap-1.5 font-mono text-xs text-text-muted">
-              {profile.theme === "dark" ? "Dark" : "Light"}
+              {profile.themePreset !== "none"
+                ? profile.themePreset.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
+                : profile.theme === "dark" ? "Dark" : "Light"}
               <ChevronRight size={16} className="text-text-faint" />
             </span>
           </Link>

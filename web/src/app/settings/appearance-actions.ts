@@ -25,7 +25,11 @@ export async function saveAppearance(formData: FormData) {
     fontStyle: formData.get("fontStyle"),
     themePreset: formData.get("themePreset"),
   })
-  if (!validated.success) return
+  
+  if (!validated.success) {
+    console.error("Appearance validation failed:", validated.error)
+    return
+  }
 
   // Saved to both the DB (so the choice follows the user to a new device/
   // session) and cookies directly (so this same request's redirect renders
