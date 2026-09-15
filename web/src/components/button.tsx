@@ -13,7 +13,7 @@ const base =
 
 const variants = {
   primary:
-    "bg-text text-bg hover:bg-white hover:shadow-[0_0_22px_rgba(255,255,255,.18)] active:bg-[#c9c9c9] active:translate-y-px disabled:bg-card-alt disabled:text-text-faint disabled:shadow-none",
+    "bg-text text-bg hover:opacity-90 active:opacity-80 active:translate-y-px disabled:bg-card-alt disabled:text-text-faint disabled:shadow-none",
   accent:
     "bg-accent text-bg font-bold shadow-accent-glow hover:brightness-110 active:brightness-95 active:translate-y-px disabled:bg-card-alt disabled:text-text-faint disabled:shadow-none",
   secondary:
@@ -29,9 +29,24 @@ export function buttonClass(variant: keyof typeof variants = "primary") {
 export function Button({
   variant = "primary",
   className = "",
+  isLoading = false,
+  disabled,
+  children,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: keyof typeof variants
+  isLoading?: boolean
 }) {
-  return <button className={`${buttonClass(variant)} ${className}`} {...props} />
+  const isDisabled = disabled || isLoading
+  return (
+    <button
+      className={`${buttonClass(variant)} ${className}`}
+      disabled={isDisabled}
+      aria-disabled={isDisabled}
+      aria-busy={isLoading}
+      {...props}
+    >
+      {children}
+    </button>
+  )
 }

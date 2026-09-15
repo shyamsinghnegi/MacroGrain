@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
-import { Doto, IBM_Plex_Mono, IBM_Plex_Sans, Orbitron, Rajdhani } from "next/font/google";
+import { Doto, IBM_Plex_Mono, IBM_Plex_Sans, Orbitron, Rajdhani, Playfair_Display, Lora, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
 import { ToastFromParam } from "@/components/toast";
@@ -15,18 +15,21 @@ const doto = Doto({
   variable: "--font-doto-loaded",
   subsets: ["latin"],
   weight: ["400", "700", "800", "900"],
+  display: "swap",
 });
 
 const ibmPlexMono = IBM_Plex_Mono({
   variable: "--font-mono-loaded",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
+  display: "swap",
 });
 
 const ibmPlexSans = IBM_Plex_Sans({
   variable: "--font-sans-loaded",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
 });
 
 // "Cyberpunk" font-style option: Orbitron for hero numerals (angular
@@ -40,12 +43,40 @@ const orbitron = Orbitron({
   variable: "--font-orbitron-loaded",
   subsets: ["latin"],
   weight: ["500", "700", "900"],
+  preload: false,
+  display: "swap",
 });
 
 const rajdhani = Rajdhani({
   variable: "--font-rajdhani-loaded",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
+  preload: false,
+  display: "swap",
+});
+
+const playfairDisplay = Playfair_Display({
+  variable: "--font-playfair-loaded",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+  preload: false,
+  display: "swap",
+});
+
+const lora = Lora({
+  variable: "--font-lora-loaded",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  preload: false,
+  display: "swap",
+});
+
+const cormorantGaramond = Cormorant_Garamond({
+  variable: "--font-cormorant-loaded",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  preload: false,
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -87,7 +118,7 @@ export default async function RootLayout({
   // `:root[data-theme="light"] .shadow-card` etc.) from applying on top of
   // a palette's own dark card colors, which would otherwise happen if the
   // user had picked "Light" before switching to a palette.
-  const effectiveTheme = themePreset === "none" ? theme : "dark";
+  const effectiveTheme = themePreset === "none" ? theme : (themePreset.includes("light") ? "light" : "dark");
 
   const onboarded = await hasCompletedOnboarding();
 
@@ -95,12 +126,14 @@ export default async function RootLayout({
     <html
       lang="en"
       data-theme={effectiveTheme}
-      data-accent={accentColor}
+      data-accent={themePreset === "none" ? accentColor : "palette"}
       data-palette={themePreset}
-      className={`${doto.variable} ${ibmPlexMono.variable} ${ibmPlexSans.variable} ${orbitron.variable} ${rajdhani.variable} h-full antialiased`}
+      className={`${doto.variable} ${ibmPlexMono.variable} ${ibmPlexSans.variable} ${orbitron.variable} ${rajdhani.variable} ${playfairDisplay.variable} ${lora.variable} ${cormorantGaramond.variable} h-full antialiased`}
     >
       <body data-font={fontStyle} className="min-h-full flex flex-col">
-        <PageTransition>{children}</PageTransition>
+        <PageTransition>
+          <main className="flex flex-1 flex-col">{children}</main>
+        </PageTransition>
         {session?.user && onboarded && <BottomNav />}
         {session?.user && <TimezoneSync />}
         {session?.user && <DayRolloverRefresh />}

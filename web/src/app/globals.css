@@ -52,12 +52,9 @@
   --mg-card-alt: #171818;
   --mg-hairline: rgba(255, 255, 255, 0.07);
   --mg-text: #ededed;
-  --mg-text-muted: #8a8a8a;
-  /* #565656 measured at only 2.53:1 against the card (#131313) - fails
-     even the relaxed 3:1 large-text minimum, not just the 4.5:1 normal-text
-     one. Reported directly: timeline hour labels and "Nothing logged"
-     status lines using this tier were "unreadable." #7e7e7e clears 4.5:1. */
-  --mg-text-faint: #7e7e7e;
+  --mg-text-muted: #9e9e9e;
+  /* Increased contrast from #7e7e7e to #8f8f8f for better legibility on small text */
+  --mg-text-faint: #8f8f8f;
   --mg-text-ghost: #3a3a3a;
   --mg-protein: #5b9df9;
   --mg-carbs: #e8b24a;
@@ -86,8 +83,8 @@
      against a near-white card drops well below a readable contrast ratio
      (reported directly: section labels and secondary lines were "hard to
      see"/near-invisible in practice, not just subjectively muted). */
-  --mg-text-muted: #52524e;
-  --mg-text-faint: #7a7a76;
+  --mg-text-muted: #42423e;
+  --mg-text-faint: #6a6a66;
   --mg-text-ghost: #b8b8b4;
   /* Macro colors darkened slightly from the dark-mode values to keep the
      same ~4.5:1 contrast ratio against a near-white card instead of a
@@ -119,6 +116,18 @@
 :root[data-accent="orange"] {
   --mg-accent: #ff9a4d;
 }
+:root[data-accent="purple"] {
+  --mg-accent: #b272f2;
+}
+:root[data-accent="gold"] {
+  --mg-accent: #f2c24d;
+}
+:root[data-accent="crimson"] {
+  --mg-accent: #f24d4d;
+}
+:root[data-accent="teal"] {
+  --mg-accent: #4df2d6;
+}
 
 /* Light-mode accent overrides - the dark-mode accent hexes above are all
    picked to glow against a near-black card (backgrounds/glows/borders),
@@ -140,6 +149,18 @@
 :root[data-theme="light"][data-accent="orange"] {
   --mg-accent: #a85820;
 }
+:root[data-theme="light"][data-accent="purple"] {
+  --mg-accent: #7836b8;
+}
+:root[data-theme="light"][data-accent="gold"] {
+  --mg-accent: #a37b22;
+}
+:root[data-theme="light"][data-accent="crimson"] {
+  --mg-accent: #b82a2a;
+}
+:root[data-theme="light"][data-accent="teal"] {
+  --mg-accent: #228b7a;
+}
 
 /* Named full palettes - see profiles.themePreset. Unlike the plain
    theme+accent combination above (which only swaps the accent hue over a
@@ -152,7 +173,8 @@
    assumed safe just because it looked fine on the original swatch card
    (several needed brightening from the literal reference hex to pass as
    text - e.g. Old Money's burgundy measured 2.9:1 as text before adjustment). */
-:root[data-palette="old_money"] {
+:root[data-palette="old_money"],
+:root[data-palette="old_money"][data-theme] {
   --mg-bg: #100e0d;
   --mg-bg-deep: #0a0908;
   --mg-surface: #1c1917;
@@ -172,7 +194,8 @@
   --mg-dither-dot: rgba(237, 231, 218, 0.06);
 }
 
-:root[data-palette="blue_fantastic"] {
+:root[data-palette="blue_fantastic"],
+:root[data-palette="blue_fantastic"][data-theme] {
   --mg-bg: #10151f;
   --mg-bg-deep: #0a0d14;
   --mg-surface: #1c2432;
@@ -192,7 +215,8 @@
   --mg-dither-dot: rgba(231, 224, 211, 0.06);
 }
 
-:root[data-palette="kombu"] {
+:root[data-palette="kombu"],
+:root[data-palette="kombu"][data-theme] {
   --mg-bg: #0e130a;
   --mg-bg-deep: #090c06;
   --mg-surface: #1a2213;
@@ -210,6 +234,48 @@
   --mg-warning: #c2703a;
   --mg-info: #4ac9e8;
   --mg-dither-dot: rgba(236, 227, 211, 0.06);
+}
+
+:root[data-palette="monochrome"],
+:root[data-palette="monochrome"][data-theme] {
+  --mg-bg: #050505;
+  --mg-bg-deep: #000000;
+  --mg-surface: #121212;
+  --mg-card: #0a0a0a;
+  --mg-card-alt: #141414;
+  --mg-hairline: rgba(255, 255, 255, 0.1);
+  --mg-text: #ffffff;
+  --mg-text-muted: #a3a3a3;
+  --mg-text-faint: #737373;
+  --mg-text-ghost: #404040;
+  --mg-accent: #ffffff;
+  --mg-protein: #5b9df9;
+  --mg-carbs: #e8b24a;
+  --mg-fat: #e86aae;
+  --mg-warning: #e8894a;
+  --mg-info: #4ac9e8;
+  --mg-dither-dot: rgba(255, 255, 255, 0.05);
+}
+
+:root[data-palette="clean_light"],
+:root[data-palette="clean_light"][data-theme] {
+  --mg-bg: #ffffff;
+  --mg-bg-deep: #f5f5f5;
+  --mg-surface: #ffffff;
+  --mg-card: #fafafa;
+  --mg-card-alt: #f0f0f0;
+  --mg-hairline: rgba(0, 0, 0, 0.06);
+  --mg-text: #111111;
+  --mg-text-muted: #666666;
+  --mg-text-faint: #999999;
+  --mg-text-ghost: #dddddd;
+  --mg-accent: #000000;
+  --mg-protein: #2f6fd6;
+  --mg-carbs: #b3791f;
+  --mg-fat: #c23e88;
+  --mg-warning: #c26a2a;
+  --mg-info: #1f8fae;
+  --mg-dither-dot: rgba(0, 0, 0, 0.03);
 }
 
 /* Font style options - see profiles.fontStyle. "default" is the original
@@ -242,6 +308,16 @@ body[data-font="cyberpunk"] {
   --font-doto-active: var(--font-orbitron-loaded);
   --font-mono-active: var(--font-rajdhani-loaded);
   --font-sans-active: var(--font-rajdhani-loaded);
+}
+body[data-font="majestic"] {
+  --font-doto-active: var(--font-playfair-loaded);
+  --font-mono-active: var(--font-lora-loaded);
+  --font-sans-active: var(--font-lora-loaded);
+}
+body[data-font="elegant"] {
+  --font-doto-active: var(--font-cormorant-loaded);
+  --font-mono-active: var(--font-cormorant-loaded);
+  --font-sans-active: var(--font-cormorant-loaded);
 }
 
 body {
@@ -447,3 +523,5 @@ body {
     }
   }
 }
+
+/* Force HMR */
