@@ -358,7 +358,7 @@ export function ScanClient() {
   }
 
   return (
-    <div className="fixed inset-0 z-40 bg-bg-deep">
+    <div className="fixed inset-0 z-40 bg-black">
       <video
         ref={videoRef}
         onPointerDown={tapToFocus}

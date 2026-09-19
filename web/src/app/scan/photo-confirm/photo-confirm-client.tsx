@@ -92,7 +92,7 @@ function ConfirmForm({ estimate, returnTo, type }: { estimate: FoodPhotoResult; 
             <span
               key={i}
               className={`h-2 w-4 rounded-[2px] ${
-                isLow ? (i === 0 ? "bg-warning" : "bg-white/10") : "bg-accent"
+                isLow ? (i === 0 ? "bg-warning" : "bg-hairline") : "bg-accent"
               }`}
             />
           ))}

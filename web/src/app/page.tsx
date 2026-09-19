@@ -187,7 +187,7 @@ export default async function Home({
           </div>
         </div>
         <div className="mt-3">
-          <Suspense fallback={<div className="h-32 w-full animate-pulse rounded-md bg-white/5" />}>
+          <Suspense fallback={<div className="h-32 w-full animate-pulse rounded-md bg-hairline" />}>
             <AsyncCalorieChart
               userId={session.user.id}
               rangeStart={rangeStart}
