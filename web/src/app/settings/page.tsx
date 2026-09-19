@@ -30,6 +30,7 @@ export default async function SettingsPage() {
 
   const dataSources = [
     { label: "Open Food Facts", connected: true },
+    { label: "INDB / IFCT (India)", connected: true },
     // Reflects whether a real USDA_API_KEY is actually configured, not a
     // hardcoded true/false - search silently degrades to OFF-only when the
     // key is unset (see api/foods/search/route.ts), so this row should too

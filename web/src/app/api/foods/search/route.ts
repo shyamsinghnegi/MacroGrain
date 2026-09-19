@@ -1,7 +1,7 @@
 import { auth } from "@/auth"
 import { db } from "@/db"
 import { foods } from "@/db/schema"
-import { like, inArray } from "drizzle-orm"
+import { like, inArray, sql, asc } from "drizzle-orm"
 import type { InferSelectModel } from "drizzle-orm"
 import { searchFoodsByName } from "@/lib/open-food-facts"
 import { searchUsdaFoods } from "@/lib/usda"
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
   // requests together instead of sequentially roughly halves the external
   // API wait on the first page, which is the dominant cost of every search.
   const usdaEnabled = offset === 0 && !!process.env.USDA_API_KEY
-  const [{ results: hits, totalCount, rawHitCount }, usdaOutcome] = await Promise.all([
+  let [{ results: hits, totalCount, rawHitCount }, usdaOutcome] = await Promise.all([
     searchFoodsByName(q, offPage, PAGE_SIZE),
     usdaEnabled
       ? searchUsdaFoods(q, PAGE_SIZE).catch((e) => {
@@ -49,8 +49,28 @@ export async function GET(request: NextRequest) {
     `[foods/search] q="${q}" page=${offPage} -> OFF raw hits=${rawHitCount}, usable (complete nutrition)=${hits.length}, OFF total matches=${totalCount}`
   )
 
+  let usdaHits = usdaOutcome?.results ?? []
+  const uniqueHits = []
+  const seenBarcodes = new Set()
+  for (const h of hits) {
+    if (!seenBarcodes.has(h.barcode)) {
+      seenBarcodes.add(h.barcode)
+      uniqueHits.push(h)
+    }
+  }
+  hits = uniqueHits
+
+  const uniqueUsdaHits = []
+  const seenFdcIds = new Set()
+  for (const h of usdaHits) {
+    if (!seenFdcIds.has(h.fdcId)) {
+      seenFdcIds.add(h.fdcId)
+      uniqueUsdaHits.push(h)
+    }
+  }
+  usdaHits = uniqueUsdaHits
+
   const barcodes = hits.map((h) => h.barcode)
-  const usdaHits = usdaOutcome?.results ?? []
   const fdcIds = usdaHits.map((h) => h.fdcId)
 
   // These three D1 round-trips are independent of each other (OFF-barcode
@@ -66,10 +86,11 @@ export async function GET(request: NextRequest) {
       ? db.query.foods.findMany({ where: inArray(foods.fdcId, fdcIds) })
       : Promise.resolve<Food[]>([]),
     offset === 0
-      ? // Postgres's `ilike` doesn't exist in SQLite (D1) - it's a hard SQL
-        // syntax error there. SQLite's plain `LIKE` is already case-insensitive
-        // for ASCII by default, so `like()` is the correct equivalent here.
-        db.select().from(foods).where(like(foods.name, `%${q}%`)).limit(PAGE_SIZE)
+      ? db.select()
+          .from(foods)
+          .where(like(foods.name, `%${q}%`))
+          .orderBy(sql`CASE WHEN ${foods.source} = 'ifct' THEN 0 ELSE 1 END`, asc(foods.name))
+          .limit(PAGE_SIZE)
       : Promise.resolve<Food[]>([]),
   ])
   const cachedBarcodes = new Set(alreadyCached.map((f) => f.barcode))
@@ -117,12 +138,26 @@ export async function GET(request: NextRequest) {
   let localOnly: typeof offOrdered = []
   let usdaOrdered: typeof offOrdered = []
   if (offset === 0) {
-    const offIds = new Set(offOrdered.map((f) => f.id))
-    localOnly = localMatches.filter((f) => !offIds.has(f.id))
-
     if (usdaHits.length) {
       const cachedByFdcId = new Map(cachedUsda.map((f) => [f.fdcId, f]))
-      const toInsertUsda = usdaHits.filter((h) => !cachedByFdcId.has(h.fdcId))
+      let toInsertUsda = usdaHits.filter((h) => !cachedByFdcId.has(h.fdcId))
+
+      // USDA items might have a gtinUpc (barcode) that already exists in the DB
+      // (e.g., from OFF or a manual seed). This causes a UNIQUE constraint error
+      // if we try to insert them again. We must query for these existing barcodes.
+      const usdaBarcodes = toInsertUsda.map((h) => h.barcode).filter(Boolean)
+      const existingByBarcode = usdaBarcodes.length > 0 
+        ? await db.query.foods.findMany({ where: inArray(foods.barcode, usdaBarcodes) })
+        : []
+      
+      const existingBarcodeSet = new Set(existingByBarcode.map(f => f.barcode))
+      
+      // We will treat these existing barcode rows as if they were cached by FDC ID,
+      // so we add them to cachedUsda.
+      cachedUsda.push(...existingByBarcode)
+      
+      // Now filter out the items we just found by barcode so we don't insert them
+      toInsertUsda = toInsertUsda.filter((h) => !h.barcode || !existingBarcodeSet.has(h.barcode))
 
       const insertedUsda: typeof cachedUsda = []
       for (let i = 0; i < toInsertUsda.length; i += CHUNK_SIZE) {
@@ -150,14 +185,50 @@ export async function GET(request: NextRequest) {
         insertedUsda.push(...rows)
       }
 
-      const byFdcId = new Map([...cachedUsda, ...insertedUsda].map((f) => [f.fdcId, f]))
+      // Map back all the items (either cached by fdcId, found by barcode, or newly inserted)
+      // Note: If a USDA hit was found by barcode, we map it back using its fdcId from the hit,
+      // BUT the DB row might not have an fdcId. We need to map usdaHits to the rows.
+      // So let's build the map from usdaHits directly based on what we found/inserted.
+      const allFoundOrInsertedRows = [...cachedUsda, ...insertedUsda]
+      const rowsByFdcId = new Map()
+      const rowsByBarcode = new Map(allFoundOrInsertedRows.map(r => [r.barcode, r]))
+      
+      for (const row of allFoundOrInsertedRows) {
+        if (row.fdcId) rowsByFdcId.set(row.fdcId, row)
+      }
+
       usdaOrdered = usdaHits
-        .map((h) => byFdcId.get(h.fdcId))
+        .map((h) => rowsByFdcId.get(h.fdcId) || rowsByBarcode.get(h.barcode))
         .filter((f): f is NonNullable<typeof f> => f !== undefined)
+    }
+
+    const offIds = new Set(offOrdered.map((f) => f.id))
+    const usdaIds = new Set(usdaOrdered.map((f) => f.id))
+    
+    // Sort local matches so IFCT is prioritized, then by name
+    const sortedLocal = [...localMatches].sort((a, b) => {
+      if (a.source === "ifct" && b.source !== "ifct") return -1
+      if (b.source === "ifct" && a.source !== "ifct") return 1
+      return a.name.localeCompare(b.name)
+    })
+    
+    localOnly = sortedLocal.filter((f) => !offIds.has(f.id) && !usdaIds.has(f.id))
+  }
+
+  const rawMerged = [...localOnly, ...usdaOrdered, ...offOrdered]
+  
+  // Deduplicate by ID to prevent React duplicate key errors.
+  // This can happen if an item is returned by both USDA and OFF (overlap),
+  // causing it to be present in both usdaOrdered and offOrdered.
+  const merged = []
+  const seenIds = new Set()
+  for (const f of rawMerged) {
+    if (!seenIds.has(f.id)) {
+      seenIds.add(f.id)
+      merged.push(f)
     }
   }
 
-  const merged = [...localOnly, ...usdaOrdered, ...offOrdered]
   // Based on the raw hit count OFF actually returned, not how many of those
   // survived the completeness filter - a page can have fewer than PAGE_SIZE
   // usable results (some hits missing nutrition data) while OFF still has

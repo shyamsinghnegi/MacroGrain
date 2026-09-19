@@ -38,7 +38,7 @@
 - 📷 AI photo scan — snap a plate, Gemini estimates food and macros, portion editable before saving
 - 🏷️ Label OCR — photograph a nutrition facts panel, AI reads calories/macros/serving size directly
 - 📦 Barcode scan — in-browser decode (zxing) against Open Food Facts, gallery-picker fallback if the camera can't be used
-- 🔍 Manual search — USDA FoodData Central + Open Food Facts, or free-form manual entry
+- 🔍 Manual search — IFCT (Indian Food Composition Tables), USDA FoodData Central, Open Food Facts, or free-form manual entry
 - Every quantity field (grams, ml, kg, cm) accepts decimals
 
 **Targets that adapt, not a number picked once**
@@ -117,7 +117,7 @@ D1's HTTP API has no transaction support, so multi-write flows (e.g. saving a fo
 | Database | [Cloudflare D1](https://developers.cloudflare.com/d1/) via [Drizzle ORM](https://orm.drizzle.team) (custom `sqlite-proxy` REST driver) |
 | Auth | [Auth.js](https://authjs.dev) (NextAuth v5), Google OAuth, Drizzle adapter |
 | AI | [Google Gemini](https://ai.google.dev) (free tier) for photo/label recognition |
-| Food data | [USDA FoodData Central](https://fdc.nal.usda.gov/) + [Open Food Facts](https://world.openfoodfacts.org/) |
+| Food data | [IFCT (Indian Food Composition Tables)](https://ifct2017.github.io/), [USDA FoodData Central](https://fdc.nal.usda.gov/), and [Open Food Facts](https://world.openfoodfacts.org/) |
 | Barcode scanning | [@zxing/browser](https://github.com/zxing-js/library) |
 | Push notifications | Web Push API, `web-push` (VAPID), a minimal service worker |
 | Styling | Tailwind CSS 4 |
