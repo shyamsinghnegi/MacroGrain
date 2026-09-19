@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
       // USDA items might have a gtinUpc (barcode) that already exists in the DB
       // (e.g., from OFF or a manual seed). This causes a UNIQUE constraint error
       // if we try to insert them again. We must query for these existing barcodes.
-      const usdaBarcodes = toInsertUsda.map((h) => h.barcode).filter(Boolean)
+      const usdaBarcodes = toInsertUsda.map((h) => h.barcode).filter((b): b is string => Boolean(b))
       const existingByBarcode = usdaBarcodes.length > 0 
         ? await db.query.foods.findMany({ where: inArray(foods.barcode, usdaBarcodes) })
         : []
