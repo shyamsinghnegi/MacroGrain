@@ -73,6 +73,9 @@ export function FoodSearch({
   const [showCreate, setShowCreate] = useState(false)
   const requestIdRef = useRef(0)
 
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
   const runSearch = useCallback((q: string, offset: number) => {
     const requestId = ++requestIdRef.current
     const isFirstPage = offset === 0
@@ -141,7 +144,7 @@ export function FoodSearch({
     else sessionStorage.removeItem(STORAGE_KEY)
   }, [query])
 
-  const visibleResults = query.trim().length === 0 ? [] : results
+  const visibleResults = (!mounted || query.trim().length === 0) ? [] : results
 
   function loadMore() {
     if (nextOffset !== null) runSearch(query.trim(), nextOffset)
@@ -162,21 +165,21 @@ export function FoodSearch({
         </div>
         <Input
           type="text"
-          value={query}
+          value={mounted ? query : ""}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search foods..."
           autoFocus
-          className={query ? "border-[1.5px] border-accent shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" : ""}
+          className={mounted && query ? "border-[1.5px] border-accent shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" : ""}
         />
       </div>
 
-      {error && query.trim().length > 0 && (
+      {error && mounted && query.trim().length > 0 && (
         <p className="font-mono text-xs text-warning">
           Search failed — check your connection and try again.
         </p>
       )}
 
-      {searching && query.trim().length > 0 ? (
+      {searching && mounted && query.trim().length > 0 ? (
         <ul className="flex flex-col gap-2">
           {Array.from({ length: 6 }, (_, i) => (
             <li
@@ -227,7 +230,7 @@ export function FoodSearch({
         </ul>
       )}
 
-      {nextOffset !== null && query.trim().length > 0 && (
+      {nextOffset !== null && mounted && query.trim().length > 0 && (
         <button
           type="button"
           onClick={loadMore}
@@ -238,7 +241,7 @@ export function FoodSearch({
         </button>
       )}
 
-      {query.trim().length > 0 && (
+      {mounted && query.trim().length > 0 && (
         <Link
           href={`/log/ai-text?q=${encodeURIComponent(query.trim())}`}
           className="flex w-full items-center justify-center gap-2 rounded-pill border border-accent/30 bg-accent/10 py-3.5 text-sm font-medium text-accent transition-colors hover:bg-accent/20"
@@ -253,7 +256,7 @@ export function FoodSearch({
         onClick={() => setShowCreate(true)}
         className={`${buttonClass("secondary")} justify-start`}
       >
-        + Create custom food{query && ` "${query}"`}
+        + Create custom food{mounted && query ? ` "${query}"` : ""}
       </button>
     </div>
   )
